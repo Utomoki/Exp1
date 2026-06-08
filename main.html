@@ -3,25 +3,32 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Experiment</title>
+  <title>Cognitive Psychology Experiment - Exp1</title>
 
   <link rel="stylesheet" href="./jspsych/jspsych.css" />
-  <script src="./jspsych/jspsych.js" type="text/javascript" defer></script>
-  <script src="./jspsych/plugins/plugin-html-keyboard-response.js" type="text/javascript" defer></script>
-  <script src="./jspsych/plugins/plugin-image-keyboard-response.js" type="text/javascript" defer></script>
-  <script src="./jspsych/plugins/plugin-instructions.js" type="text/javascript" defer></script>
-  <script src="./jspsych/plugins/plugin-html-button-response.js" type="text/javascript" defer></script>
-  <script src="./jspsych/plugins/plugin-preload.js" type="text/javascript" defer></script>
-  <script src="./jspsych/plugins/plugin-fullscreen.js" type="text/javascript" defer></script>
-  <script src="./jspsych/plugins/plugin-survey-html-form.js" type="text/javascript" defer></script>
-  <script src="./jspsych/plugins/plugin-call-function.js" type="text/javascript" defer></script>
   
-  <script src="./modules/utils.js" defer></script>
-  <script src="./modules/introduction.js" defer></script>
-  <script src="./modules/trials.js" defer></script>
-  <script src="./modules/experiment.js" defer></script>
+  <script src="./jspsych/jspsych.js" type="text/javascript"></script>
+  
+  <script src="./jspsych/plugins/plugin-html-keyboard-response.js" type="text/javascript"></script>
+  <script src="./jspsych/plugins/plugin-image-keyboard-response.js" type="text/javascript"></script>
+  <script src="./jspsych/plugins/plugin-instructions.js" type="text/javascript"></script>
+  <script src="./jspsych/plugins/plugin-html-button-response.js" type="text/javascript"></script>
+  <script src="./jspsych/plugins/plugin-preload.js" type="text/javascript"></script>
+  <script src="./jspsych/plugins/plugin-fullscreen.js" type="text/javascript"></script>
+  <script src="./jspsych/plugins/plugin-survey-html-form.js" type="text/javascript"></script>
+  <script src="./jspsych/plugins/plugin-call-function.js" type="text/javascript"></script>
+  
+  <script src="./modules/utils.js" type="text/javascript"></script>
+  <script src="./modules/introduction.js" type="text/javascript"></script>
+  <script src="./modules/trials.js" type="text/javascript"></script>
+  <script src="./modules/experiment.js" type="text/javascript"></script>
 </head>
 <body>
+  <div id="fullscreen-recovery-container" style="display:none; position:fixed; top:10px; right:10px; z-index:9999;">
+    <button id="btn-recover-fs" style="padding:6px 12px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:14px; box-shadow:0 2px 5px rgba(0,0,0,0.3);">
+      全画面表示に戻す
+    </button>
+  </div>
   <div id="jspsych-target"></div>
 </body>
 </html>
