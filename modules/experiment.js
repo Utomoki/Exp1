@@ -1,227 +1,231 @@
 (async () => {
-
-  function shuffle(array) {
-    return array
-      .map(x => ({ x, r: Math.random() }))
-      .sort((a, b) => a.r - b.r)
-      .map(e => e.x);
-  }
-
-  // CSS
+  // 初期ベースCSSを適用
   ExpUtils.injectBaseCSS();
 
-  // jsPsych 初期化
+  // サーバーサイドから構成パラメータ一式を非同期Fetchロード
+  const config = await ExpUtils.loadConfig('./config/experiment.config.json');
+
+  // jsPsychコア初期化 (v7/v8 準拠型仕様)
   const jsPsych = initJsPsych({
-    display_element: 'jspsych-target',
-    on_finish: () => {
-
-    // 実験終了時刻
-    const end = new Date();
-    const hh = String(end.getHours()).padStart(2,'0');
-    const mm = String(end.getMinutes()).padStart(2,'0');
-    const ss = String(end.getSeconds()).padStart(2,'0');
-    const endTime = `${hh}${mm}${ss}`;
-
-    // 実施日：YYYYMMDD
-    const y = end.getFullYear();
-    const m = String(end.getMonth()+1).padStart(2,'0');
-    const d = String(end.getDate()).padStart(2,'0');
-    const date8 = `${y}${m}${d}`;
-    }
+    display_element: 'jspsych-target'
   });
 
-  // config読み込み
-  const config = await ExpUtils.loadConfig('./config/experiment.config.json');
-  window.__expConfig = config;
+  // Fisher-Yatesアルゴリズムに基づく堅牢なコア内蔵シャッフルエイリアス
+  const shuffle = (arr) => jsPsych.randomization.shuffle(arr);
 
-  const practiceRaw = await ExpUtils.loadJsonl(config.lists.practice.file);
-  const mainARaw    = await ExpUtils.loadJsonl(config.lists.mainA.file);
-  const mainBRaw    = await ExpUtils.loadJsonl(config.lists.mainB.file);
-  const mainCRaw    = await ExpUtils.loadJsonl(config.lists.mainC.file);
+  // マニフェストJSONLのパラレルロード
+  const [practiceRaw, mainARaw, mainBRaw, mainCRaw] = await Promise.all([
+    ExpUtils.loadJsonl(config.lists.practice.file),
+    ExpUtils.loadJsonl(config.lists.mainA.file),
+    ExpUtils.loadJsonl(config.lists.mainB.file),
+    ExpUtils.loadJsonl(config.lists.mainC.file)
+  ]);
 
-  // Practice: デコレーション
-  const blockSize = config.block_size;
-  
-  const practiceShuffled = shuffle(practiceRaw);
-  const practiceDecorated = ExpUtils.decorateByBlocks(
-    practiceShuffled,
-    { blockSize, colorsSeq: ['black','silver'], posSeq: [360,180] }
-  );
-  const practiceList = practiceDecorated.map((item, idx) => ({
+  const bSize = config.block_size;
+
+  // 1. 練習リスト構築 (練習はboth条件固定の12試行、ルアーなし)
+  const practiceDecorated = ExpUtils.decorateByBlocks(shuffle(practiceRaw), {
+    blockSize: bSize,
+    colorsSeq: shuffle(config.colors.filter(c => c !== 'black')),
+    posSeq: shuffle(config.positions)
+  }).map((item, idx) => ({
     ...item,
+    block_type: "practice",
+    is_lure: false,
     encoding_index: idx + 1
   }));
 
+  // 2. 本番ブロック条件割付マッピング関数の定義
+  function generateMainBlockData(rawItems, blockType) {
+    const shuffled = shuffle(rawItems);
+    
+    // カテゴリごとにターゲット(36枚)とルアー(6枚)を比率に沿って安全に分離
+    // 仕様：ファイル名に含まれる 'anim_' や 'tool_' を自動判別
+    const categories = {};
+    shuffled.forEach(item => {
+      const match = item.src.match(/([A-Za-z0-9_-]+)_/);
+      const cat = match ? match[1] : 'default';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(item);
+    });
 
-  // Main: 色枠・ポジション・セットへのランダム割り当て
-  const chroma = ['red','lime','blue','yellow','aqua','fuchsia'];
-  const circle = [60,120,180,240,300,360];
-  const allCenter = [0];
+    const targetPool = [];
+    const lurePool = [];
+    
+    Object.keys(categories).forEach(cat => {
+      const catItems = categories[cat];
+      // 1ブロック辺り 42枚中 記銘36(85.7%):ルアー6(14.3%) の比率で配分
+      const targetCount = Math.round(catItems.length * (36 / 42));
+      targetPool.push(...catItems.slice(0, targetCount));
+      lurePool.push(...catItems.slice(targetCount));
+    });
 
-  const setTypes = shuffle([1,2,3]);  // A,B,Cに割り当てる3タイプ
+    // 過不足の補正セーフティ
+    const finalTargets = targetPool.slice(0, 36);
+    const finalLures = lurePool.slice(0, 6);
 
-  function decorateSet(items, type, blockSize) {
-    const chromaRand = shuffle(chroma);
-    const circleRand = shuffle(circle);
+    let colorsSeq = [];
+    let posSeq = [];
 
-    let colorsSeq;
-    let posSeq;
-
-    if (type === 1) {
-      colorsSeq = chromaRand;
-      posSeq = allCenter;
-    } else if (type === 2) {
-      colorsSeq = ['black'];
-      posSeq = circleRand;
-    } else {
-      colorsSeq = chromaRand;
-      posSeq = circleRand;
+    if (blockType === "color") {
+      colorsSeq = shuffle(config.colors.filter(c => c !== 'black'));
+      posSeq = [0]; // 常に中央
+    } else if (blockType === "position") {
+      colorsSeq = ['black']; // 常に黒
+      posSeq = shuffle(config.positions);
+    } else if (blockType === "both") {
+      colorsSeq = shuffle(config.colors.filter(c => c !== 'black'));
+      posSeq = shuffle(config.positions);
     }
 
-    return ExpUtils.decorateByBlocks(items, {
-      blockSize,
-      colorsSeq,
-      posSeq
-    });
-  }
-
-  // 本番リスト構築（A/B/C の順番ランダム）
-  const rawMap = { A: mainARaw, B: mainBRaw, C: mainCRaw };
-  const listOrder = shuffle(['A', 'B', 'C']);
-
-  let mainList = [];
-  listOrder.forEach((key, i) => {
-    const type = setTypes[i];
-
-    const shuffledRaw = shuffle(rawMap[key]);
-    const decoratedRaw = decorateSet(shuffledRaw, type, blockSize);
-    const decorated = decoratedRaw.map((item, idx) => ({
+    // 記銘用36枚に対して文脈の環境情報を付与
+    const decoratedTargets = ExpUtils.decorateByBlocks(finalTargets, {
+      blockSize: bSize, colorsSeq, posSeq
+    }).map((item, idx) => ({
       ...item,
-      context_set: i + 1,
+      block_type: blockType,
+      is_lure: false,
       encoding_index: idx + 1
     }));
 
-    decorated.forEach(item => {
-      mainList.push(item);
-    });
+    // ルアー用6枚に対するダミー環境属性の付与 (再認評価時の参照メタデータ)
+    const decoratedLures = finalLures.map((item, idx) => ({
+      ...item,
+      block_type: blockType,
+      is_lure: true,
+      context_order: idx + 1,
+      order_in_context: 99,
+      frame_color: colorsSeq[idx % colorsSeq.length],
+      position_index: posSeq[idx % posSeq.length],
+      encoding_index: null
+    }));
+
+    return [...decoratedTargets, ...decoratedLures];
+  }
+
+  // 3. カウンターバランス（ブロック順序の被験者間ランダム化）
+  const blockConditions = shuffle(["color", "position", "both"]);
+  const rawLists = [mainARaw, mainBRaw, mainCRaw]; // リストと条件の結合
+  
+  const mainBlocksCombined = blockConditions.map((condition, idx) => {
+    return {
+      type: condition,
+      list: generateMainBlockData(rawLists[idx], condition)
+    };
   });
 
-  // 画像刺激プリロード
-  const preloadPractice = {
-    type: jsPsychPreload,
-    images: practiceList.map(x => x.src),
-    show_progress_bar: true
-  };
+  // 全画像アセットの統合プリロード配列化
+  const allImagesToPreload = [
+    ...practiceDecorated.map(x => x.src),
+    ...mainBlocksCombined.flatMap(b => b.list.map(x => x.src))
+  ];
 
-  const preloadMainBg = {
-    type: jsPsychPreload,
-    images: mainList.map(x => x.src),
-    show_progress_bar: false
-  };
-
-  // タイムライン
+  // タイムラインの初期スタック
   const timeline = [];
 
-  // 全体Introduction
-  timeline.push(...BuildIntroduction.build(jsPsych, {
-    buttonNext: "次へ",
-    buttonPrev: "前へ"
-  }));
+  // プリロードノード
+  timeline.push({
+    type: jsPsychPreload,
+    images: allImagesToPreload,
+    show_progress_bar: true,
+    message: "実験に必要な画像アセットを読み込んでいます。しばらくお待ちください..."
+  });
 
-  // フルスクリーン開始
+  // 同意・属性フェーズ
+  timeline.push(...BuildIntroduction.build(jsPsych, config));
+
+  // 自動フルスクリーン移行ノード
   timeline.push({
     type: jsPsychFullscreen,
     fullscreen_mode: true,
-    message:
-      '【練習課題へ】を押すと全画面になります。<br>中止したい場合のみ Esc で解除できます。',
+    message: '<p>【練習課題へ】ボタンを押すと画面が自動的に全画面モードへ切り替わります。</p>',
     button_label: '練習課題へ'
   });
 
-  // スクロールロック
-  timeline.push({
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: '',
-    choices: "NO_KEYS",
-    trial_duration: 10,
-    on_load: () => {
-      ExpUtils.lockScroll();
-    }
-  });
+  // 練習ブロックの注入
+  timeline.push(...BuildTrials.buildPracticeBlock(jsPsych, practiceDecorated, config));
 
-  // Practice
-  timeline.push(preloadPractice);
-  timeline.push(...BuildTrials.buildPracticeBlock(jsPsych, practiceList));
-
-  // Main
-  timeline.push(preloadMainBg);
-  listOrder.forEach((setKey, i) => {
+  // 本番3ブロックの動的ループインジェクト
+  mainBlocksCombined.forEach((blockObj, i) => {
     const setIndex = i + 1;
-    const subset = mainList.filter(x => x.context_set === setIndex);
-    timeline.push(...BuildTrials.buildMainBlock(jsPsych, subset, setIndex));
+    timeline.push(...BuildTrials.buildMainBlock(jsPsych, blockObj.list, blockObj.type, setIndex, config));
   });
 
-  // フルスクリーン解除
+  // フルスクリーン自動解除
   timeline.push({
     type: jsPsychFullscreen,
-    fullscreen_mode: false
+    fullscreen_mode: false,
+    on_start: () => ExpUtils.disableFullscreenMonitoring()
   });
 
-  // スクロールロック解除
+  // スクロール・カーソル完全復帰
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
-    stimulus: '',
+    stimulus: '<p style="font-size:22px;">全タスクが完了しました。現在、実験データをサーバーへ安全に保存しています...</p>',
     choices: "NO_KEYS",
-    trial_duration: 10,
+    trial_duration: 1200,
     on_load: () => {
       ExpUtils.showCursor();
       ExpUtils.unlockScroll();
     }
   });
 
-  
+  // 【欠陥解消修正】Promise/async/await 規格準拠型データ永続化処理
   timeline.push({
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: '<p>データを保存しています。しばらくお待ちください...</p>',
-    choices: "NO_KEYS",
-    trial_duration: 2000,
+    type: jsPsychCallFunction,
+    async: true,
+    func: async function(done) {
+      const now = new Date();
+      const expDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+      const expTime = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+
+      // データ層の最終確定プロパティ格納
+      jsPsych.data.addProperties({
+        experiment_date: expDate,
+        experiment_end_time: expTime,
+        block_order_sequence: blockConditions.join('-')
+      });
+
+      try {
+        const response = await fetch('write_data.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: jsPsych.data.get().json()
+        });
+        
+        if (!response.ok) throw new Error(`HTTP Status Error: ${response.status}`);
+        console.log("Data packet saved successfully.");
+      } catch (err) {
+        console.error("Critical Data Loss Prevention Error:", err);
+        alert("【警告】データの保存中に通信エラーが発生しました。この画面を絶対に閉じず、完了コードを控えて実験担当者までお伝えください。");
+      } finally {
+        done(); // 非同期完了をjsPsychコアへ通知し、初めて次ノード（終了画面）へ安全に移行
+      }
+    }
   });
 
-  var save_trial = {
-  type: jsPsychCallFunction,
-  async: true,
-  func: function(done){
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', 'write_data.php');
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.onload = function() {
-        if(xhr.status == 200){
-          var response = JSON.parse(xhr.responseText);
-          console.log(response.success);
-        }
-        done(); // invoking done() causes experiment to progress to next trial.
-      };
-      xhr.send(jsPsych.data.get().json());
-    }
-  }
-  timeline.push(save_trial);
-
-  const end_msg = {
-        type: jsPsychHtmlKeyboardResponse,
-        stimulus: `
-        <p>お疲れ様でした。以上で調査を終了いたします。</p>
-        <p>以下に表示される完了コードを必ずメモしてから、画面を閉じてください。</p>
-        <h2>完了コード：<strong>145215</strong></h2>
-        <div class="contact">
-          <div><strong>連絡先</strong>（問題が生じた場合、以下にご連絡ください。）</div>
-          <div>九州大学大学院 人間環境学府 行動システム専攻 修士1年　上野 友幹</div>
-          <div>ueno.tomoki.921@s.kyushu-u.ac.jp ／ 080-4318-6402</div>
+  // 終了確定・完了コード提示画面（Choices: NO_KEYS で離脱を担保）
+  timeline.push({
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="inst-wrap" style="text-align:center;">
+        <p style="font-size:24px; font-weight:bold; color:#2c3e50;">お疲れ様でした。以上で実験調査はすべて終了です。</p>
+        <p>以下の完了コードを確実にコピー、またはメモに残してから画面を閉じてください。</p>
+        <div style="background:#f1c40f; padding:15px; border-radius:8px; display:inline-block; margin:20px 0;">
+          <span style="font-size:16px; font-weight:bold; color:#333;">Yahoo!クラウドソーシング用 作業完了コード</span><br>
+          <strong style="font-size:38px; letter-spacing:4px; color:#c0392b;">${config.completion_code}</strong>
         </div>
-        `,
-        choices: "NO_KEYS"
-    }
-  timeline.push(end_msg);
+        <div class="contact" style="text-align:left;">
+          <div><strong>お問い合わせ先</strong>（システムエラーや謝礼に関する問題が生じた場合）</div>
+          <div>${config.investigator.affiliation}</div>
+          <div>氏名：${config.investigator.name}</div>
+          <div>Mail：<a href="mailto:${config.investigator.email}">${config.investigator.email}</a> ／ TEL：${config.investigator.phone}</div>
+        </div>
+      </div>
+    `,
+    choices: "NO_KEYS"
+  });
 
-  // 実行
+  // 実験駆動
   jsPsych.run(timeline);
-
 })();
