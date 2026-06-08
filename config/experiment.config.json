@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "block_size": 6,
+
+  "lists": {
+    "practice": { "file": "manifest/practice.jsonl" },
+    "mainA":    { "file": "manifest/main_listA.jsonl" },
+    "mainB":    { "file": "manifest/main_listB.jsonl" },
+    "mainC":    { "file": "manifest/main_listC.jsonl" }
+  },
+
+  "colors": ["red","lime","blue","yellow","aqua","fuchsia","black","silver"],
+  "color_map": {
+    "red":"#ff0000",
+    "lime":"#00ff00",
+    "blue":"#0000ff",
+    "yellow":"#ffff00",
+    "aqua":"#00ffff",
+    "fuchsia":"#ff00ff",
+    "black":"#000000",
+    "silver":"#C0C0C0"
+  },
+
+  "positions": [0,60,120,180,240,300,360],
+  "position_map": {
+    "0":   { "name":"center", "type":"center" },
+    "60":  { "name":"deg60",  "type":"polar", "polar":  { "angle_deg": 60,  "radius_px": 300 } },
+    "120": { "name":"deg120", "type":"polar", "polar":  { "angle_deg": 120, "radius_px": 300 } },
+    "180": { "name":"deg180", "type":"polar", "polar":  { "angle_deg": 180, "radius_px": 300 } },
+    "240": { "name":"deg240", "type":"polar", "polar":  { "angle_deg": 240, "radius_px": 300 } },
+    "300": { "name":"deg300", "type":"polar", "polar":  { "angle_deg": 300, "radius_px": 300 } },
+    "360": { "name":"deg360", "type":"polar", "polar":  { "angle_deg": 360, "radius_px": 300 } }
+  }
+}

@@ -1,0 +1,10 @@
+# 生データフォルダをGitの管理対象から除外
+/data/
+
+# OSが自動生成するファイル（Macなどの場合）
+.DS_Store
+
+# 環境固有の設定ファイル（今後使う可能性がある場合）
+database_config.php
+write_data.php
+.pdf

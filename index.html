@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>物品の可食判断と画像記憶に関する実験</title>
+  <script src="https://unpkg.com/jspsych@7.3.4"></script>
+  <link href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css" rel="stylesheet" type="text/css" />
+  
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-fullscreen@1.2.1"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-text@1.2.1"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-multi-choice@1.1.3"></script>
+
+  <style>
+    /* 方法1: フルスクリーン解除時に画面端に常時表示するボタンのスタイル */
+    #restore-fullscreen-btn {
+      display: none;
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 9999;
+      background-color: #ff4444;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    /* スクロール必須の同意文書用エリア */
+    .consent-box {
+      width: 600px;
+      height: 300px;
+      overflow-y: scroll;
+      border: 1px solid #ccc;
+      padding: 15px;
+      text-align: left;
+      margin: 0 auto 20px auto;
+      background: #f9f9f9;
+    }
+    /* 記銘課題の配置用のスタイル（時計回り配置用） */
+    .experiment-container {
+      position: relative;
+      width: 500px;
+      height: 500px;
+      margin: 0 auto;
+    }
+    .fixation-cross {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 48px;
+    }
+    .stimulus-wrapper {
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body>
+  <button id="restore-fullscreen-btn" onclick="requestFullscreen()">全画面表示に戻す</button>
+
+  <script>
+    // --- 0. カラーコードおよび基礎設定の定義 ---
+    const colors = {
+      "red": "#ff0000",
+      "lime": "#00ff00",
+      "blue": "#0000ff",
+      "yellow": "#ffff00",
+      "aqua": "#00ffff",
+      "fuchsia": "#ff00ff",
+      "black": "#000000"
+    };
+    const colorNames = ["red", "lime", "blue", "yellow", "aqua", "fuchsia"];
+    const positions = [60, 120, 180, 240, 300, 360]; // 時計回りの角度
+
+    // --- フルスクリーン解除検知ロジック (方法1) ---
+    document.addEventListener('fullscreenchange', () => {
+      const btn = document.getElementById('restore-fullscreen-btn');
+      if (!document.fullscreenElement) {
+        btn.style.display = 'block'; // 解除されたらボタンを表示
+      } else {
+        btn.style.display = 'none';
+      }
+    });
+
+    function requestFullscreen() {
+      const el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen();
+    }
+
+    // --- jsPsych 初期化 ---
+    const jsPsych = initJsPsych({
+      on_finish: function() {
+        // 実験終了時にデータを画面に表示（本番はサーバー保存等に変更）
+        jsPsych.data.displayData();
+      }
+    });
+
+    let timeline = [];
+
+    // --- 1. 実験説明画面（ページ分岐） ---
+    const instructions = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: `
+        <h2>実験説明・注意事項</h2>
+        <p>これは「物品の可食判断と画像記憶に関する実験」です。</p>
+        <p>・PC画面に表示される画像について判断・記憶する課題を行います。<br>
+        ・実験は説明・休憩を含めて約25分で完了します。<br>
+        <span style="color:red; font-weight:bold;">・スマホではなくPCで行ってください。</span><br>
+        ・動作に影響するため、他のタブやページはできるだけ閉じてください。</p>
+        <div style="border: 1px solid #ccc; padding: 10px; margin-top: 20px; font-size:14px;">
+          <strong>連絡先</strong>（問題が生じた場合、以下にご連絡ください。）<br>
+          九州大学大学院 人間環境学府 行動システム専攻 修士2年 上野 友幹<br>
+          Email: ueno.tomoki.921@s.kyushu-u.ac.jp
+        </div>
+      `,
+      choices: ['次へ']
+    };
+    timeline.push(instructions);
+
+    // --- 2. 同意の取得（スクロール制限＆必須化） ---
+    const consent_trial = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: `
+        <h2>同意の取得</h2>
+        <p>始めに実験内容について、下までスクロールしながらご確認ください。</p>
+        <div class="consent-box" id="consent-stream">
+          <h3>研究目的と内容</h3>
+          <p>本研究は、画像順序の記憶とその時間的な感覚について明らかにすることを目的としております。提示される画像について簡単な判断を行い、その後で画像の出てきたタイミングについて回答してもらいます。</p>
+          <h3>参加者の権利</h3>
+          <p>・本研究の参加は自由意志によるものであり、参加への同意はいつでも撤回することができます。<br>
+          ・同意を撤回しても、いかなる不利益を受けることはありません。途中で中止する場合はウェブブラウザを閉じてください。</p>
+          <h3>謝礼</h3>
+          <p>・謝礼はYahoo!クラウドソーシングを通して支払われます。実験終了後、最後の画面に表示される6桁の確認番号を必ず記録してください。</p>
+          <h3>プライバシーの保護</h3>
+          <p>・得られたデータはインターネット上で公開される可能性がありますが、匿名で収集されるため、個人が特定されることはありません。</p>
+          <h3>倫理委員会</h3>
+          <p>・この実験は、九州大学大学院人間環境学研究院の研究倫理委員会の承認を得て実施しています（申請番号：2025-027）。</p>
+        </div>
+        <p>
+          <input type="checkbox" id="consent-checkbox" disabled>
+          <label for="consent-checkbox"><strong>本実験の内容を理解し、参加に同意します。</strong></label>
+        </p>
+      `,
+      choices: ['次へ'],
+      button_html: '<button class="jspsych-btn" id="consent-next-btn" disabled>%choice%</button>',
+      on_load: function() {
+        const box = document.getElementById('consent-stream');
+        const chk = document.getElementById('consent-checkbox');
+        const btn = document.getElementById('consent-next-btn');
+        
+        box.addEventListener('scroll', function() {
+          // 最下部までスクロールしたか判定
+          if (box.scrollHeight - box.scrollTop <= box.clientHeight + 2) {
+            chk.removeAttribute('disabled');
+          }
+        });
+        
+        chk.addEventListener('change', function() {
+          if (chk.checked) {
+            btn.removeAttribute('disabled');
+          } else {
+            btn.setAttribute('disabled', 'true');
+          }
+        });
+      }
+    };
+    timeline.push(consent_trial);
+
+    // --- 3. 参加者属性取得（回答必須） ---
+const participant_info = {
+  type: jsPsychSurvey,
+  pages: [
+    [
+      {
+        type: 'text',
+        prompt: "あなたの年齢を半角数字で入力してください：",
+        name: 'age',
+        required: true
+      },
+      {
+        type: 'multi-choice',
+        prompt: "あなたの性別を選択してください：",
+        options: ['男性', '女性', 'その他', '回答しない'],
+        name: 'gender',
+        required: true
+      }
+    ]
+  ]
+};
+// タイムラインへは、この1つをプッシュすればOKです
+timeline.push(participant_info);
+
+    // ==========================================
+    // --- 5. 仮のデモ用データ生成ロジック ---
+    // (本来はここで外部JSONや配列から画像リストを読み込みます)
+    // ==========================================
+    
+    // カテゴリ統制のためにファイル名にカテゴリ名(例: anim, tool)を入れる想定のダミーパス
+    const practice_stimuli = Array.from({length: 12}, (_, i) => ({
+      id: `p${String(i+1).padStart(2, '0')}`,
+      path: `stimuli/practice/anim_p${i+1}.png`,
+      category: 'anim'
+    }));
+
+    // 本番用（本来はlist1~list3を読み込む。ここではデモとして1リスト分を自動生成）
+    const block_stimuli = Array.from({length: 36}, (_, i) => ({
+      id: `ma${String(i+1).padStart(2, '0')}`,
+      path: `stimuli/list1/${i % 2 === 0 ? 'anim' : 'tool'}_item${i+1}.png`,
+      category: i % 2 === 0 ? 'anim' : 'tool'
+    }));
+    
+    const lure_stimuli = Array.from({length: 4}, (_, i) => ({
+      id: `lure${String(i+1).padStart(2, '0')}`,
+      path: `stimuli/list1/${i % 2 === 0 ? 'anim' : 'tool'}_lure${i+1}.png`,
+      category: i % 2 === 0 ? 'anim' : 'tool'
+    }));
+
+    // --- 6. 練習課題タイムラインの構築 (12試行) ---
+    // ※文字数の都合上、本番の枠組みに直結する記銘タイムラインのコア部分を生成します。
+
+    const practice_start = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: `
+        <h2>練習課題 －食べ物か否かを判断する課題－</h2>
+        <p>表示された画像が食べ物なら 【F】 、食べ物でなければ 【J】 を押してください。</p>
+        <p>わからない場合も、できるだけ早くどちらかを押してください。</p>
+      `,
+      choices: ['開始']
+    };
+    timeline.push(practice_start);
+
+    // 1試行の固定時間（5.0秒）タイムラインテンプレート
+    function create_encoding_trial(stim_data, frame_color, position_deg, context_order, order_in_context) {
+      let node = {
+        timeline: [
+          {
+            // 1. 注視点 (0.5秒)
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: '<div style="font-size:48px;">＋</div>',
+            choices: 'NO_KEYS',
+            trial_duration: 500
+          },
+          {
+            // 2. ブランク (2.0秒)
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: '',
+            choices: 'NO_KEYS',
+            trial_duration: 2000
+          },
+          {
+            // 3. 画像提示＆判断 (2.5秒固定)
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: function() {
+              // 位置計算 (角度からラジアンへ変換、中央なら0)
+              let style = "top:50%; left:50%;";
+              if (position_deg !== 0) {
+                const radius = 150; // 配置の半径
+                const rad = (position_deg - 90) * Math.PI / 180; // 12時方向を基準に
+                const x = Math.cos(rad) * radius;
+                const y = Math.sin(rad) * radius;
+                style = `top: calc(50% + ${y}px); left: calc(50% + ${x}px);`;
+              }
+              return `
+                <div class="experiment-container">
+                  <div class="stimulus-wrapper" style="${style}">
+                    <img src="${stim_data.path}" style="border: 10px solid ${colors[frame_color]}; width:150px; height:150px;" />
+                  </div>
+                </div>
+              `;
+            },
+            choices: ['f', 'j'],
+            trial_duration: 2500,
+            data: {
+              task: 'encoding',
+              phase: 'encoding',
+              id: stim_data.id,
+              item_name: stim_data.path,
+              category: stim_data.category,
+              context_order: context_order,
+              order_in_context: order_in_context,
+              frame_color: frame_color,
+              position_index: position_deg
+            }
+          }
+        ]
+      };
+      return node;
+    }
+
+    // デモとして練習用の最初の1試行を追加
+    timeline.push(create_encoding_trial(practice_stimuli[0], "red", 60, 1, 1));
+
+
+    // ==========================================
+    // --- 7. 本番想起課題：タイムライン用テンプレート ---
+    // ==========================================
+
+    // 共通説明画面のあと、白ブランク（1.0秒）を挟んでスタート
+    const retrieval_instruction = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+        <h2>再認課題 & ソースメモリー課題</h2>
+        <p>ここからは先ほどの画像についての思い出しテストです。</p>
+        <p>スペースキーを押すと開始します。</p>
+      `,
+      choices: [' ']
+    };
+    
+    const retrieval_blank_10 = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: '',
+      choices: 'NO_KEYS',
+      trial_duration: 1000
+    };
+    
+    const retrieval_blank_05 = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: '',
+      choices: 'NO_KEYS',
+      trial_duration: 500
+    };
+
+    // 再認課題ノードの動的作成関数
+    function create_recognition_block(stim_data, is_lure, correct_color, correct_pos, prev_color, prev_pos) {
+      
+      // 再認ステップ
+      const rec_trial = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: `
+          <div style="margin-bottom:20px;"><img src="${stim_data.path}" style="width:150px; height:150px;" /></div>
+          <h3>この画像は、先ほどの判断課題で表示されましたか？</h3>
+          <p>【F】: 表示されていた / 【J】: 表示されていなかった</p>
+        `,
+        choices: ['f', 'j'],
+        data: { task: 'retrieval_recognition', id: stim_data.id, is_lure: is_lure }
+      };
+
+      // ソースメモリーステップ（colorブロック用の例）
+      const source_color_trial = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: function() {
+          // 左右どちらに正解を置くかランダム化
+          const left_is_correct = Math.random() < 0.5;
+          const c1 = left_is_correct ? correct_color : prev_color;
+          const c2 = left_is_correct ? prev_color : correct_color;
+          
+          jsPsych.data.write({current_correct_side: left_is_correct ? 'f' : 'j'});
+
+          return `
+            <div style="display:flex; justify-content:center; gap:50px; margin-bottom:20px;">
+              <img src="${stim_data.path}" style="border: 10px solid ${colors[c1]}; width:150px; height:150px;" />
+              <img src="${stim_data.path}" style="border: 10px solid ${colors[c2]}; width:150px; height:150px;" />
+            </div>
+            <h3>画像の枠色はどちらでしたか？</h3>
+            <p>【F】: 左 / 【J】: 右</p>
+          `;
+        },
+        choices: ['f', 'j'],
+        // 条件分岐：直前の再認課題で「F（表示されていた）」と答えた場合のみ実行
+        conditional_function: function() {
+          const last_trial_data = jsPsych.data.get().last(1).values()[0];
+          return last_trial_data.response === 'f';
+        }
+      };
+
+      // 条件分岐を含んだ1セットのタイムライン
+      return {
+        timeline: [rec_trial, retrieval_blank_05, source_color_trial, retrieval_blank_10]
+      };
+    }
+
+    // デモ用として1個追加
+    timeline.push(retrieval_instruction, retrieval_blank_10);
+    timeline.push(create_recognition_block(block_stimuli[0], false, "red", 0, "lime", 0));
+
+
+    // --- 8. 実験終了 ＆ 完了コード表示 ---
+    const experiment_end = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        // Yahoo!クラウドソーシング用のランダムな6桁コードを生成
+        const completion_code = Math.floor(100000 + Math.random() * 900000);
+        return `
+          <h2>実験終了</h2>
+          <p>お疲れさまでした。これで実験は終了です。ご参加ありがとうございました。</p>
+          <p style="font-size: 24px; color: green;">完了コード：<strong>${completion_code}</strong></p>
+          <p>画面下に表示されている「完了コード」を必ずメモして謝礼を受け取ってください。</p>
+          <p>エスケープキーを押してフルスクリーンを解除し、データを送信してください。</p>
+        `;
+      },
+      choices: ['NO_KEYS']
+    };
+    timeline.push(experiment_end);
+
+    // 実験スタート
+    jsPsych.run(timeline);
+  </script>
+</body>
+</html>
