@@ -2,7 +2,7 @@ window.BuildIntroduction = (() => {
   function build(jsPsych, config) {
     const tl = [];
 
-    // 1. 実験説明画面と同意取得画面を1つのノードに統合
+    // 1. 実験説明画面と同意取得画面を1つのノードに統合（行き来できる動的制御）
     tl.push({
       type: jsPsychInstructions,
       pages: [
@@ -48,9 +48,8 @@ window.BuildIntroduction = (() => {
       button_label_next: "次へ",
       button_label_previous: "前へ",
       on_page_change: (page_index) => {
-        // jsPsychによるDOM更新（ボタンの有効化など）が完了するのを待ってから上書きするためsetTimeoutを使用
+        // jsPsychによるDOM更新完了後に確実にロックを効かせるため遅延処理
         setTimeout(() => {
-          // ボタンはIDで確実に取得する
           const nextBtn = document.getElementById('jspsych-instructions-next');
           
           if (page_index === 1) {
@@ -59,7 +58,7 @@ window.BuildIntroduction = (() => {
             const checkbox = document.getElementById('consent-check');
             
             if (nextBtn && checkbox) {
-              // チェックボックスの状態を「次へ」ボタンへ即座に同期（強制ロック）
+              // 同意チェックの状態を「次へ」ボタンに即座に同期（強制ロック）
               nextBtn.disabled = !checkbox.checked;
               
               checkbox.onchange = (e) => {
@@ -69,7 +68,7 @@ window.BuildIntroduction = (() => {
 
             if (scrollZone && checkbox) {
               const checkScroll = () => {
-                // スクロール底面判定（デバイス間の描画誤差を吸収するため余裕を5pxに拡張）
+                // デバイス間の描画誤差を吸収するため余裕を5pxにして判定
                 if (scrollZone.scrollHeight - scrollZone.scrollTop <= scrollZone.clientHeight + 5) {
                   checkbox.disabled = false;
                   scrollZone.removeEventListener('scroll', checkScroll);
@@ -77,15 +76,15 @@ window.BuildIntroduction = (() => {
               };
               
               scrollZone.addEventListener('scroll', checkScroll);
-              checkScroll(); // 初期状態でスクロールバーがない（すべて見えている）場合のフェイルセーフ
+              checkScroll(); // 初期状態でスクロールバーがない場合のフェイルセーフ
             }
           } else {
-            // 実験説明画面（ページ0）に戻ったときは、次へボタンのロックを確実に解除
+            // 実験説明画面（ページ0）に戻ったときは、次へボタンのロックを解除
             if (nextBtn) {
               nextBtn.disabled = false;
             }
           }
-        }, 10); // 10ミリ秒の遅延を入れることでjsPsychの内部処理後に上書きさせる
+        }, 10);
       }
     });
 
@@ -115,7 +114,7 @@ window.BuildIntroduction = (() => {
       data: { Component: "basic_info" },
       on_finish: (data) => {
         const resp = data.response;
-        // Rでの統計解析を見据え、プロパティ名を大文字始まりでフラットに付与
+        // Rでの解析を見据えてプロパティ名を大文字始まりで付与
         jsPsych.data.addProperties({
           Participant_id: jsPsych.randomization.randomID(8),
           Gender: resp.gender,
@@ -124,7 +123,7 @@ window.BuildIntroduction = (() => {
       }
     });
 
-    // 4. 実験共通インストラクション
+    // 4. 実験共通インストラクション（各ステップに対応する画像付き仕様へアップデート）
     tl.push({
       type: jsPsychInstructions,
       pages: [
@@ -146,18 +145,19 @@ window.BuildIntroduction = (() => {
           <p>次の画面から、それぞれの詳しい進め方を説明します。</p>
         </div>
         `,
-        // 共通ページ1：ステップ1
+        // 共通ページ1：ステップ1（inst_encoding.png を追加）
         `
         <div class="inst-wrap">
           <h2>ステップ1：可食判断課題（判断課題）</h2>
           <p>画面中央に「＋」が表示されたのち、<strong>枠のついた画像</strong>が1枚ずつ表示されます。</p>
           <ul>
             <li>画像が<strong>「食べられるもの（食品）」なら左手で【F】キー</strong>を、<strong>「食べられないもの」なら右手で【J】キー</strong>を押してください。</li>
-            <li>画像はキー入力の有無にかかわらず自動で次に進みます。必ず提示されている間に素早く正確に回答してください。</li>
+            <li>画像はキー入力の有無にかかわらず自動で次に進みます。必ず提示されている間に素べく正確に回答してください。</li>
           </ul>
+          <img src="./img/inst_encoding.png" class="inst-img" alt="可食判断課題の説明">
         </div>
         `,
-        // 共通ページ2：ステップ2,3
+        // 共通ページ2：ステップ2,3（inst-2-1.pngとinst-2-2.png を追加）
         `
         <div class="inst-wrap">
           <h2>ステップ2,3：画像の有無と背景を思い出す課題</h2>
@@ -167,9 +167,14 @@ window.BuildIntroduction = (() => {
             <li><strong>画像の背景を思い出す課題</strong>：<br>表示されていた(=F)と答えた画像について、それが「どの枠色」または「どの位置」に提示されていたかを2択で回答します。</li>
           </ul>
           <p>練習課題では、ダミー（非表示画像）を含みません。</p>
+          
+          <div class="img-pair">
+            <img src="./img/inst-2-1.png" style="max-width: 45%; height: auto; border: 2px solid #000;" alt="画像の有無を思い出す課題の説明">
+            <img src="./img/inst-2-2.png" style="max-width: 45%; height: auto; border: 2px solid #000;" alt="画像の背景を思い出す課題の説明">
+          </div>
         </div>
         `,
-        // 共通ページ3：ステップ4
+        // 共通ページ3：ステップ4（inst_1.png を追加）
         `
         <div class="inst-wrap">
           <h2>ステップ4：画像の順序を思い出す課題</h2>
@@ -178,6 +183,7 @@ window.BuildIntroduction = (() => {
             <li><strong>画像の順序を思い出す課題</strong>：<br>同時に提示される2枚の画像のうち、「判断課題でどちらが先に表示されたか」を【F=左】【J=右】で回答します。</li>
           </ul>
           <p>それでは、練習課題から開始します。</p>
+          <img src="./img/inst-1.png" class="inst-img" alt="画像の順序を思い出す課題の説明">
         </div>
         `
       ],
