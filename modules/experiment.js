@@ -24,24 +24,47 @@
 
     const bSize = config.block_size;
 
-    // 1. 練習リスト構築 (練習はboth条件固定の12試行、ルアーなし)
-    const practiceDecorated = ExpUtils.decorateByBlocks(shuffle(practiceRaw), {
-      blockSize: bSize,
-      colorsSeq: shuffle(config.colors.filter(c => c !== 'black')),
-      posSeq: shuffle(config.positions)
-    }).map((item, idx) => ({
+    // --- 1. 練習リスト構築の修正 ---
+    // 練習課題（12試行）において、指定の6色および位置が「連続せずに」ランダムに出現するよう専用の割付を行う
+    const baseColors = config.colors.filter(c => c !== 'black');
+    const basePoses = config.positions;
+    
+    // 連続を回避しながら必要な長さの配列を生成するヘルパー関数
+    function getNonRepeatingSeq(baseArr, totalLength) {
+      let seq = [];
+      let lastVal = null;
+      while(seq.length < totalLength) {
+        let arr = shuffle([...baseArr]);
+        if (arr[0] === lastVal) {
+          let temp = arr[0]; arr[0] = arr[1]; arr[1] = temp; // 先頭が被ったら2番目と入れ替える
+        }
+        seq.push(...arr);
+        lastVal = arr[arr.length - 1];
+      }
+      return seq.slice(0, totalLength);
+    }
+
+    const practiceColors = getNonRepeatingSeq(baseColors, 12);
+    const practicePoses = getNonRepeatingSeq(basePoses, 12);
+
+    const practiceDecorated = shuffle(practiceRaw).slice(0, 12).map((item, idx) => ({
       ...item,
       block_type: "practice",
       is_lure: false,
-      encoding_index: idx + 1
+      encoding_index: idx + 1,
+      frame_color: practiceColors[idx],
+      position_index: practicePoses[idx],
+      context_order: 1, // 練習課題は便宜上1つの文脈として扱う
+      order_in_context: idx + 1
     }));
+    // -----------------------------
 
     // 2. 本番ブロック条件割付マッピング関数の定義
     function generateMainBlockData(rawItems, blockType) {
       const shuffled = shuffle(rawItems);
       
       // カテゴリごとにターゲット(36枚)とルアー(6枚)を比率に沿って安全に分離
-      // 仕様：ファイル名に含まれる 'anim_' や 'tool_' を自動判別
+      // 仕様：ファイル名に含まれる 'anim_' や 'tool_' 等を自動判別
       const categories = {};
       shuffled.forEach(item => {
         const match = item.src.match(/([A-Za-z0-9_-]+)_/);
@@ -101,6 +124,8 @@
         encoding_index: null
       }));
 
+      // リストとしてはターゲットとルアーを統合した状態で trials.js へ渡し、
+      // trials.js 側の記銘タスク生成時に filter してルアーを確実に弾く設計とする
       return [...decoratedTargets, ...decoratedLures];
     }
 
@@ -171,7 +196,7 @@
       }
     });
 
-    // 【欠陥解消修正】Promise/async/await 規格準拠型データ永続化処理
+    // Promise/async/await 規格準拠型データ永続化処理
     timeline.push({
       type: jsPsychCallFunction,
       async: true,
@@ -180,11 +205,11 @@
         const expDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
         const expTime = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
 
-        // データ層の最終確定プロパティ格納
+        // Rでの解析要件に合わせ、大文字始まり（キャメルケース等）でプロパティ格納
         jsPsych.data.addProperties({
-          experiment_date: expDate,
-          experiment_end_time: expTime,
-          block_order_sequence: blockConditions.join('-')
+          Experiment_date: expDate,
+          Experiment_end_time: expTime,
+          Block_order_sequence: blockConditions.join('-')
         });
 
         try {
@@ -232,7 +257,7 @@
 
   } catch (error) {
     console.error("Initialization Error:", error);
-    // 初期化に失敗した場合、画面が真っ白になるのを防ぐためのフォールバックUI
+    // 初期化に失敗した場合のフォールバックUI
     document.getElementById('jspsych-target').innerHTML = `
       <div style="max-width: 800px; margin: 50px auto; padding: 30px; border: 2px solid #e74c3c; border-radius: 8px; background-color: #fadbd8; color: #c0392b; font-family: sans-serif; text-align: center;">
         <h2 style="margin-top: 0;">実験の読み込みに失敗しました</h2>
