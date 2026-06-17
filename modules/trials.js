@@ -25,14 +25,12 @@ window.BuildTrials = (() => {
 
   // ソースメモリー課題：Position用の統合HTML生成（1つの画面内に2箇所提示 ＋ 黒枠 ＋ 中央十字）
   function makeCombinedPositionHTML(src, posF, posJ, config) {
-    // 位置計算用のヘルパー
     const getTransform = (posIndex) => {
       let dx = 0, dy = 0;
       if (config && config.position_map) {
         const entry = config.position_map[String(posIndex)];
         if (entry && entry.type !== 'center') {
           const a = entry.polar.angle_deg * Math.PI / 180;
-          // ミニ画面(600x450)の縮尺に合わせて、移動距離(半径)を0.6倍にスケールダウン
           const r = (entry.polar.radius_px || 250) * 0.6; 
           dx = Math.round(Math.cos(a) * r);
           dy = Math.round(Math.sin(a) * r);
@@ -77,12 +75,9 @@ window.BuildTrials = (() => {
   // 1. 記銘試行 (Encoding) の動的構築
   function buildEncodingTrials(jsPsych, list, config, isPractice = false) {
     const encodingTimeline = [];
-    
-    // リストにルアーが含まれている場合、記銘フェーズからは確実に排除する
     const encodingList = list.filter(x => !x.is_lure);
 
     encodingList.forEach((item, idx) => {
-      // 注視点ノード
       encodingTimeline.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: '<div class="fixation">+</div>',
@@ -93,7 +88,6 @@ window.BuildTrials = (() => {
         }
       });
 
-      // ブランクノード
       encodingTimeline.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: '',
@@ -101,12 +95,11 @@ window.BuildTrials = (() => {
         trial_duration: 2000
       });
 
-      // 刺激提示・可食判断ノード
       encodingTimeline.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: () => ExpUtils.makeFramedImageHTMLWithPos(item.src, item.frame_color, item.position_index, config),
         choices: ['f', 'j'],
-        response_ends_trial: false, // 反応があっても2.5秒固定制御
+        response_ends_trial: false, 
         trial_duration: 2500,
         data: {
           Task: "encoding",
@@ -132,7 +125,7 @@ window.BuildTrials = (() => {
             const isF = (data.response === 'f');
             data.Correctness = (isF === item.eatable) ? 1 : 0;
           } else {
-            data.Correctness = null; // 無反応時はnull
+            data.Correctness = null; 
           }
           data.Encoding_correctness = data.Correctness;
         }
@@ -147,7 +140,6 @@ window.BuildTrials = (() => {
     const trials = [];
 
     testPool.forEach((item, idx) => {
-      // 再認試行ノード（再認の時はターゲット画像単体を表示）
       const recognitionTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
@@ -186,16 +178,13 @@ window.BuildTrials = (() => {
       };
       trials.push(recognitionTrial);
 
-      // --- ソースメモリー選択肢の事前構築 ---
       let colorChoices = [];
       let posChoices = [];
 
       if (item.test_type !== "lure") {
-        // testPool構築時に割り当てられた「不正解」をそのまま利用
         colorChoices = [item.frame_color, item.wrong_color];
         posChoices = [item.position_index, item.wrong_position];
       } else {
-        // ルアー画像：完全ランダムな2択を生成
         const allColors = config.colors.filter(c => c !== 'black');
         const allPositions = config.positions;
         
@@ -217,7 +206,6 @@ window.BuildTrials = (() => {
       const color0_hex = config.color_map[finalColorOptions[0]] ?? finalColorOptions[0];
       const color1_hex = config.color_map[finalColorOptions[1]] ?? finalColorOptions[1];
 
-      // カラー設問ノード
       const colorSourceTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
@@ -264,7 +252,6 @@ window.BuildTrials = (() => {
         }
       };
 
-      // 位置設問ノード（新UI：1画面内にFとJの画像を配置）
       const posSourceTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
@@ -302,7 +289,6 @@ window.BuildTrials = (() => {
         }
       };
 
-      // 条件付きソース記憶ノード（再認でOld＝Fと答えた場合のみ実施）
       const sourceConditionalNode = {
         timeline: [],
         conditional_function: function() {
@@ -311,18 +297,15 @@ window.BuildTrials = (() => {
         }
       };
 
-      // ブロック条件に応じたソース記憶課題の展開インジェクト
       if (blockType === "color") {
         sourceConditionalNode.timeline.push(colorSourceTrial);
       } else if (blockType === "position") {
         sourceConditionalNode.timeline.push(posSourceTrial);
       } else if (blockType === "both") {
-        // Both条件時は色と場所の設問順序を完全ランダム化
         const order = localShuffle([colorSourceTrial, posSourceTrial]);
         sourceConditionalNode.timeline.push(order[0], order[1]);
       }
 
-      // 固定インターバルブランク
       const postTrialBlank = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: '', choices: "NO_KEYS", trial_duration: 1000
@@ -340,7 +323,6 @@ window.BuildTrials = (() => {
     const trials = [];
 
     finalOrderPool.forEach((pair, idx) => {
-      // 左右の提示位置を50%の確率でカウンターバランス
       const isLeftFirst = Math.random() < 0.5;
       const leftItem = isLeftFirst ? pair.first : pair.second;
       const rightItem = isLeftFirst ? pair.second : pair.first;
@@ -356,7 +338,7 @@ window.BuildTrials = (() => {
           Task: "retrieval",
           Phase: "retrieval_order",
           Block_type: blockType,
-          Pair_type: pair.type, // "within" or "across"
+          Pair_type: pair.type, 
           Trial_index_in_task: idx + 1,
           Left_id: leftItem.id,
           Right_id: rightItem.id,
@@ -380,7 +362,6 @@ window.BuildTrials = (() => {
         }
       });
 
-      // 試行間インターバル
       trials.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: '', choices: "NO_KEYS", trial_duration: 1000
@@ -401,7 +382,6 @@ window.BuildTrials = (() => {
       stimulus: '<div class="inst-wrap"><h2>練習課題の開始</h2><p>これより練習課題（計12試行）を行います。可食判断のF/Jキーへの反応速度に慣れてください。</p></div>',
       choices: ['練習を開始する'],
       on_load: () => ExpUtils.showCursor(),
-      // 全画面が不意に外れていたら自動で再要求して戻す
       on_finish: function() {
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
           const target = document.documentElement;
@@ -410,7 +390,6 @@ window.BuildTrials = (() => {
       }
     });
 
-    // 記銘練習の注入
     tl.push(...buildEncodingTrials(jsPsych, practiceList, config, true));
 
     tl.push({
@@ -420,17 +399,14 @@ window.BuildTrials = (() => {
       on_load: () => ExpUtils.showCursor()
     });
 
-    // --- 練習想起刺激の厳密なサンプリング抽出 ---
     const pSorted = [...practiceList].sort((a, b) => a.encoding_index - b.encoding_index);
 
-    // 再認・ソース練習：指定の7枚目(index 6)と9枚目(index 8)
-    // 不正解背景はそれぞれ直前の6枚目(index 5)と8枚目(index 7)の背景を採用
+    // 要件：練習課題では、7枚目(index 6)と9枚目(index 8)を採用。不正解はそれぞれ6枚目と8枚目
     const practiceSourcePool = [
       { ...pSorted[6], test_type: "within", wrong_color: pSorted[5].frame_color, wrong_position: pSorted[5].position_index },
       { ...pSorted[8], test_type: "within", wrong_color: pSorted[7].frame_color, wrong_position: pSorted[7].position_index }
     ];
     
-    // 順序練習：指定の「2枚目と6枚目」「5枚目と9枚目」の2ペア
     const practiceOrderPool = [
       { type: "within", first: pSorted[1], second: pSorted[5] }, 
       { type: "across", first: pSorted[4], second: pSorted[8] }  
@@ -460,9 +436,8 @@ window.BuildTrials = (() => {
       choices: ['このセットを開始する'],
       on_load: () => {
         ExpUtils.showCursor();
-        ExpUtils.setupFullscreenMonitoring(); // 離脱監視の有効化
+        ExpUtils.setupFullscreenMonitoring(); 
       },
-      // 全画面が不意に外れていたら自動で再要求して戻す
       on_finish: function() {
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
           const target = document.documentElement;
@@ -471,19 +446,16 @@ window.BuildTrials = (() => {
       }
     });
 
-    // 1. 本番記銘フェーズ (ルアーは内部で自動除外される)
     tl.push(...buildEncodingTrials(jsPsych, blockList, config, false));
 
-    // 2 & 3. 本番再認・ソース記憶フェーズの構築
     const oldItems = blockList.filter(x => !x.is_lure);
     const lures = blockList.filter(x => x.is_lure);
 
-    // 6n+1枚目(1番目, context_order > 1)と、6n+3枚目(3番目, context_order > 1)をそれぞれ抽出
+    // 要件：6n+1枚目(1番目)から4試行、6n+4枚目(4番目)から4試行、ルアーから4試行を抽出
     const boundaryItems = localShuffle(oldItems.filter(x => x.context_order > 1 && x.order_in_context === 1)).slice(0, 4);
-    const withinItems = localShuffle(oldItems.filter(x => x.context_order > 1 && x.order_in_context === 3)).slice(0, 4);
+    const withinItems = localShuffle(oldItems.filter(x => x.context_order > 1 && x.order_in_context === 4)).slice(0, 4);
     const chosenLures = localShuffle(lures).slice(0, 4);
 
-    // 不正解背景(一つ前のブロックの背景)を付与するヘルパー
     const addWrongBg = (item) => {
       const prevContext = item.context_order - 1;
       const prevItem = oldItems.find(x => x.context_order === prevContext);
@@ -504,10 +476,8 @@ window.BuildTrials = (() => {
     });
     tl.push({ type: jsPsychHtmlKeyboardResponse, stimulus: '', choices: "NO_KEYS", trial_duration: 1000 });
     
-    // ビルドした配列を展開注入
     tl.push(...buildRecognitionAndSource(jsPsych, mainTestPool, blockType, config, false));
 
-    // 4. 本番時系列順序記憶フェーズの構築
     const oldItemsSorted = [...oldItems].sort((a, b) => a.encoding_index - b.encoding_index);
     const blocks = [];
     for (let i = 0; i < oldItemsSorted.length; i += 6) {
@@ -519,10 +489,8 @@ window.BuildTrials = (() => {
 
     blocks.forEach((block, idx) => {
       if (block.length < 6) return;
-      // Within: 各文脈の2枚目(idx:1) と 6枚目(idx:5)
       withinPairs.push({ type: "within", first: block[1], second: block[5] });
 
-      // Across: n番目の5枚目(idx:4) と n+1番目の3枚目(idx:2)
       const nextBlock = blocks[idx + 1];
       if (nextBlock && nextBlock.length >= 3) {
         acrossPairs.push({ type: "across", first: block[4], second: nextBlock[2] });
@@ -540,10 +508,8 @@ window.BuildTrials = (() => {
     });
     tl.push({ type: jsPsychHtmlKeyboardResponse, stimulus: '', choices: "NO_KEYS", trial_duration: 1000 });
     
-    // ビルドした配列を展開注入
     tl.push(...buildOrderTimeline(jsPsych, mainOrderPool, blockType, false));
 
-    // 5. 休憩（3セット目の後は不要なため条件分岐処理）
     if (setIndex < 3) {
       tl.push({
         type: jsPsychHtmlButtonResponse,

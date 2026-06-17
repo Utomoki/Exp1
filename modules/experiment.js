@@ -24,19 +24,17 @@
 
     const bSize = config.block_size;
 
-    // --- 1. 練習リスト構築の修正 ---
-    // 練習課題（12試行）において、指定の6色および位置が「連続せずに」ランダムに出現するよう専用の割付を行う
+    // 練習リスト構築（12試行、指定の6色および位置が連続せずにランダムに出現）
     const baseColors = config.colors.filter(c => c !== 'black');
     const basePoses = config.positions;
     
-    // 連続を回避しながら必要な長さの配列を生成するヘルパー関数
     function getNonRepeatingSeq(baseArr, totalLength) {
       let seq = [];
       let lastVal = null;
       while(seq.length < totalLength) {
         let arr = shuffle([...baseArr]);
         if (arr[0] === lastVal) {
-          let temp = arr[0]; arr[0] = arr[1]; arr[1] = temp; // 先頭が被ったら2番目と入れ替える
+          let temp = arr[0]; arr[0] = arr[1]; arr[1] = temp;
         }
         seq.push(...arr);
         lastVal = arr[arr.length - 1];
@@ -54,39 +52,54 @@
       encoding_index: idx + 1,
       frame_color: practiceColors[idx],
       position_index: practicePoses[idx],
-      context_order: 1, // 練習課題は便宜上1つの文脈として扱う
+      context_order: 1, 
       order_in_context: idx + 1
     }));
-    // -----------------------------
 
-    // 2. 本番ブロック条件割付マッピング関数の定義
+    // 2. 本番ブロック条件割付マッピング関数の定義（要件に合わせて完全刷新）
     function generateMainBlockData(rawItems, blockType) {
-      const shuffled = shuffle(rawItems);
-      
-      // カテゴリごとにターゲット(36枚)とルアー(6枚)を比率に沿って安全に分離
-      // 仕様：ファイル名に含まれる 'anim_' や 'tool_' 等を自動判別
+      // カテゴリごとに分類 (animal, clothes, food, furniture, goods, place, plant, vehicle)
       const categories = {};
-      shuffled.forEach(item => {
+      rawItems.forEach(item => {
         const match = item.src.match(/([A-Za-z0-9_-]+)_/);
         const cat = match ? match[1] : 'default';
         if (!categories[cat]) categories[cat] = [];
         categories[cat].push(item);
       });
 
-      const targetPool = [];
-      const lurePool = [];
-      
+      // 各カテゴリ内をあらかじめランダムシャッフル
       Object.keys(categories).forEach(cat => {
-        const catItems = categories[cat];
-        // 1ブロック辺り 42枚中 記銘36(85.7%):ルアー6(14.3%) の比率で配分
-        const targetCount = Math.round(catItems.length * (36 / 42));
-        targetPool.push(...catItems.slice(0, targetCount));
-        lurePool.push(...catItems.slice(targetCount));
+        categories[cat] = shuffle(categories[cat]);
       });
 
-      // 過不足の補正セーフティ
-      const finalTargets = targetPool.slice(0, 36);
-      const finalLures = lurePool.slice(0, 6);
+      // 要件：各リストにおけるルアーの厳密な割り当て指定 [goods:1, furniture:1, clothes:1, animal:1] (計4枚)
+      const lureSpecs = { goods: 1, furniture: 1, clothes: 1, animal: 1 };
+      // 要件：各リストにおけるターゲットの厳密な割り当て指定 (計36枚)
+      const targetSpecs = { food: 9, goods: 12, furniture: 5, clothes: 3, animal: 3, place: 1, vehicle: 2, plant: 1 };
+
+      const targetPool = [];
+      const lurePool = [];
+
+      // まずルアーを安全に独立抽出
+      Object.keys(lureSpecs).forEach(cat => {
+        if (categories[cat]) {
+          const count = lureSpecs[cat];
+          lurePool.push(...categories[cat].slice(0, count));
+          categories[cat] = categories[cat].slice(count); // 抽出した分をプールから除く
+        }
+      });
+
+      // 次にターゲットを抽出
+      Object.keys(targetSpecs).forEach(cat => {
+        if (categories[cat]) {
+          const count = targetSpecs[cat];
+          targetPool.push(...categories[cat].slice(0, count));
+        }
+      });
+
+      // 要件：記銘課題の刺激（ターゲット36枚）は完全にランダム
+      const finalTargets = shuffle(targetPool);
+      const finalLures = shuffle(lurePool);
 
       let colorsSeq = [];
       let posSeq = [];
@@ -102,7 +115,7 @@
         posSeq = shuffle(config.positions);
       }
 
-      // 記銘用36枚に対して文脈の環境情報を付与
+      // 記銘用36枚に対して文脈の環境情報を付与（6枚ごとに背景が切り替わる）
       const decoratedTargets = ExpUtils.decorateByBlocks(finalTargets, {
         blockSize: bSize, colorsSeq, posSeq
       }).map((item, idx) => ({
@@ -112,7 +125,7 @@
         encoding_index: idx + 1
       }));
 
-      // ルアー用6枚に対するダミー環境属性の付与 (再認評価時の参照メタデータ)
+      // ルアー用4枚に対するダミー環境属性の付与
       const decoratedLures = finalLures.map((item, idx) => ({
         ...item,
         block_type: blockType,
@@ -124,14 +137,12 @@
         encoding_index: null
       }));
 
-      // リストとしてはターゲットとルアーを統合した状態で trials.js へ渡し、
-      // trials.js 側の記銘タスク生成時に filter してルアーを確実に弾く設計とする
       return [...decoratedTargets, ...decoratedLures];
     }
 
     // 3. カウンターバランス（ブロック順序の被験者間ランダム化）
     const blockConditions = shuffle(["color", "position", "both"]);
-    const rawLists = [mainARaw, mainBRaw, mainCRaw]; // リストと条件の結合
+    const rawLists = [mainARaw, mainBRaw, mainCRaw]; 
     
     const mainBlocksCombined = blockConditions.map((condition, idx) => {
       return {
@@ -205,7 +216,6 @@
         const expDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
         const expTime = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
 
-        // Rでの解析要件に合わせ、大文字始まり（キャメルケース等）でプロパティ格納
         jsPsych.data.addProperties({
           Experiment_date: expDate,
           Experiment_end_time: expTime,
@@ -225,12 +235,12 @@
           console.error("Critical Data Loss Prevention Error:", err);
           alert("【警告】データの保存中に通信エラーが発生しました。この画面を絶対に閉じず、完了コードを控えて実験担当者までお伝えください。");
         } finally {
-          done(); // 非同期完了をjsPsychコアへ通知し、初めて次ノード（終了画面）へ安全に移行
+          done(); 
         }
       }
     });
 
-    // 終了確定・完了コード提示画面（Choices: NO_KEYS で離脱を担保）
+    // 終了確定・完了コード提示画面
     timeline.push({
       type: jsPsychHtmlKeyboardResponse,
       stimulus: `
@@ -252,12 +262,10 @@
       choices: "NO_KEYS"
     });
 
-    // 実験駆動
     jsPsych.run(timeline);
 
   } catch (error) {
     console.error("Initialization Error:", error);
-    // 初期化に失敗した場合のフォールバックUI
     document.getElementById('jspsych-target').innerHTML = `
       <div style="max-width: 800px; margin: 50px auto; padding: 30px; border: 2px solid #e74c3c; border-radius: 8px; background-color: #fadbd8; color: #c0392b; font-family: sans-serif; text-align: center;">
         <h2 style="margin-top: 0;">実験の読み込みに失敗しました</h2>
