@@ -56,7 +56,7 @@
       order_in_context: idx + 1
     }));
 
-    // 2. 本番ブロック条件割付マッピング関数の定義（要件に合わせて完全刷新）
+    // 2. 本番ブロック条件割付マッピング関数の定義
     function generateMainBlockData(rawItems, blockType) {
       // カテゴリごとに分類 (animal, clothes, food, furniture, goods, place, plant, vehicle)
       const categories = {};
@@ -72,9 +72,9 @@
         categories[cat] = shuffle(categories[cat]);
       });
 
-      // 要件：各リストにおけるルアーの厳密な割り当て指定 [goods:1, furniture:1, clothes:1, animal:1] (計4枚)
+      // 各リストにおけるルアーの厳密な割り当て指定 [goods:1, furniture:1, clothes:1, animal:1] (計4枚)
       const lureSpecs = { goods: 1, furniture: 1, clothes: 1, animal: 1 };
-      // 要件：各リストにおけるターゲットの厳密な割り当て指定 (計36枚)
+      // 各リストにおけるターゲットの厳密な割り当て指定 (計36枚)
       const targetSpecs = { food: 9, goods: 12, furniture: 5, clothes: 3, animal: 3, place: 1, vehicle: 2, plant: 1 };
 
       const targetPool = [];
@@ -85,7 +85,7 @@
         if (categories[cat]) {
           const count = lureSpecs[cat];
           lurePool.push(...categories[cat].slice(0, count));
-          categories[cat] = categories[cat].slice(count); // 抽出した分をプールから除く
+          categories[cat] = categories[cat].slice(count); 
         }
       });
 
@@ -97,7 +97,7 @@
         }
       });
 
-      // 要件：記銘課題の刺激（ターゲット36枚）は完全にランダム
+      // 記銘課題の刺激（ターゲット36枚）は完全にランダム
       const finalTargets = shuffle(targetPool);
       const finalLures = shuffle(lurePool);
 
@@ -106,9 +106,9 @@
 
       if (blockType === "color") {
         colorsSeq = shuffle(config.colors.filter(c => c !== 'black'));
-        posSeq = [0]; // 常に中央
+        posSeq = [0]; 
       } else if (blockType === "position") {
-        colorsSeq = ['black']; // 常に黒
+        colorsSeq = ['black']; 
         posSeq = shuffle(config.positions);
       } else if (blockType === "both") {
         colorsSeq = shuffle(config.colors.filter(c => c !== 'black'));
@@ -207,7 +207,7 @@
       }
     });
 
-    // Promise/async/await 規格準拠型データ永続化処理
+    // サーバー保存処理ノード（write_data.php 連携版へ復帰）
     timeline.push({
       type: jsPsychCallFunction,
       async: true,
@@ -216,6 +216,7 @@
         const expDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
         const expTime = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
 
+        // Rでの解析要件に合わせ、大文字始まりでプロパティ格納
         jsPsych.data.addProperties({
           Experiment_date: expDate,
           Experiment_end_time: expTime,
@@ -230,23 +231,23 @@
           });
           
           if (!response.ok) throw new Error(`HTTP Status Error: ${response.status}`);
-          console.log("Data packet saved successfully.");
+          console.log("Data packet saved successfully via PHP.");
         } catch (err) {
           console.error("Critical Data Loss Prevention Error:", err);
           alert("【警告】データの保存中に通信エラーが発生しました。この画面を絶対に閉じず、完了コードを控えて実験担当者までお伝えください。");
         } finally {
-          done(); 
+          done(); // 非同期保存の完了を通知して終了画面へ遷移
         }
       }
     });
 
-    // 終了確定・完了コード提示画面
+    // 終了確定・完了コード提示画面（Choices: NO_KEYS で離脱を担保）
     timeline.push({
       type: jsPsychHtmlKeyboardResponse,
       stimulus: `
         <div class="inst-wrap" style="text-align:center;">
           <p style="font-size:24px; font-weight:bold; color:#2c3e50;">お疲れ様でした。以上で実験調査はすべて終了です。</p>
-          <p>以下の完了コードを確実にコピー、またはメモに残してから画面を閉じてください。</p>
+          <p>以下の完了コードを確実にコピー、またはメモに残してから画面を閉してください。</p>
           <div style="background:#f1c40f; padding:15px; border-radius:8px; display:inline-block; margin:20px 0;">
             <span style="font-size:16px; font-weight:bold; color:#333;">Yahoo!クラウドソーシング用 作業完了コード</span><br>
             <strong style="font-size:38px; letter-spacing:4px; color:#c0392b;">${config.completion_code}</strong>
@@ -262,10 +263,12 @@
       choices: "NO_KEYS"
     });
 
+    // 実験駆動
     jsPsych.run(timeline);
 
   } catch (error) {
     console.error("Initialization Error:", error);
+    // 初期化に失敗した場合のフォールバックUI
     document.getElementById('jspsych-target').innerHTML = `
       <div style="max-width: 800px; margin: 50px auto; padding: 30px; border: 2px solid #e74c3c; border-radius: 8px; background-color: #fadbd8; color: #c0392b; font-family: sans-serif; text-align: center;">
         <h2 style="margin-top: 0;">実験の読み込みに失敗しました</h2>
