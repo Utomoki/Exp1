@@ -62,39 +62,34 @@ window.BuildTrials = (() => {
     `;
   }
 
-  // Fisher-Yates シャッフルアルゴリズム（ローカル用）
-  function localShuffle(array) {
-    const arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
   // 1. 記銘試行 (Encoding) の動的構築
   function buildEncodingTrials(jsPsych, list, config, isPractice = false) {
     const encodingTimeline = [];
     const encodingList = list.filter(x => !x.is_lure);
 
     encodingList.forEach((item, idx) => {
+      // 注視点（解析対象外: 0）
       encodingTimeline.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: '<div class="fixation">+</div>',
         choices: "NO_KEYS",
         trial_duration: 500,
+        data: { Is_analytic_trial: 0 },
         on_start: () => { 
           if (idx === 0) ExpUtils.hideCursor(); 
         }
       });
 
+      // ブランク（解析対象外: 0）
       encodingTimeline.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: '',
         choices: "NO_KEYS",
-        trial_duration: 2000
+        trial_duration: 2000,
+        data: { Is_analytic_trial: 0 }
       });
 
+      // 刺激提示・可食判断ノード（【JASP最適化】解析対象フラグ: 1）
       encodingTimeline.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: () => ExpUtils.makeFramedImageHTMLWithPos(item.src, item.frame_color, item.position_index, config),
@@ -115,7 +110,8 @@ window.BuildTrials = (() => {
           Trial_index_in_task: idx + 1,
           Is_practice: isPractice,
           Pair_type: null,
-          Test_type: null
+          Test_type: null,
+          Is_analytic_trial: isPractice ? 0 : 1 // 【JASP最適化】本番の反応行のみ1
         },
         on_finish: function(data) {
           data.Encoding_response = data.response;
@@ -125,7 +121,8 @@ window.BuildTrials = (() => {
             const isF = (data.response === 'f');
             data.Correctness = (isF === item.eatable) ? 1 : 0;
           } else {
-            data.Correctness = null; 
+            data.Correctness = null; // 【JASP最適化】空欄＝欠損値
+            data.Encoding_RT = null;
           }
           data.Encoding_correctness = data.Correctness;
         }
@@ -140,6 +137,7 @@ window.BuildTrials = (() => {
     const trials = [];
 
     testPool.forEach((item, idx) => {
+      // 再認試行ノード（【JASP最適化】解析対象フラグ: 1）
       const recognitionTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
@@ -163,7 +161,8 @@ window.BuildTrials = (() => {
           Trial_index_in_task: idx + 1,
           Test_type: item.test_type, 
           Is_practice: isPractice,
-          Pair_type: null
+          Pair_type: null,
+          Is_analytic_trial: isPractice ? 0 : 1 // 【JASP最適化】
         },
         on_finish: function(d) {
           d.Recognition_response = d.response;
@@ -172,7 +171,7 @@ window.BuildTrials = (() => {
             const isTrueOld = (d.Test_type !== "lure");
             d.Correctness = (isOldResponse === isTrueOld) ? 1 : 0;
           } else {
-            d.Correctness = null;
+            d.Correctness = null; // 【JASP最適化】
           }
         }
       };
@@ -200,12 +199,14 @@ window.BuildTrials = (() => {
         posChoices = [randPos1, randPos2];
       }
 
-      const finalColorOptions = localShuffle([...new Set(colorChoices)]);
-      const finalPosOptions = localShuffle([...new Set(posChoices)]);
+      // 【修正】ExpUtils.shuffle へ一元化
+      const finalColorOptions = ExpUtils.shuffle([...new Set(colorChoices)]);
+      const finalPosOptions = ExpUtils.shuffle([...new Set(posChoices)]);
 
       const color0_hex = config.color_map[finalColorOptions[0]] ?? finalColorOptions[0];
       const color1_hex = config.color_map[finalColorOptions[1]] ?? finalColorOptions[1];
 
+      // カラーソース設問ノード（【JASP最適化】解析対象フラグ: 1）
       const colorSourceTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
@@ -239,7 +240,8 @@ window.BuildTrials = (() => {
           Opt_left: finalColorOptions[0],
           Opt_right: finalColorOptions[1],
           Correct_value: item.frame_color,
-          Pair_type: null
+          Pair_type: null,
+          Is_analytic_trial: isPractice ? 0 : 1 // 【JASP最適化】
         },
         on_finish: function(d) {
           d.Source_response = d.response;
@@ -247,11 +249,12 @@ window.BuildTrials = (() => {
             const chosen = (d.response === 'f') ? d.Opt_left : d.Opt_right;
             d.Correctness = (item.test_type !== "lure" && chosen === d.Correct_value) ? 1 : 0;
           } else {
-            d.Correctness = null;
+            d.Correctness = null; // 【JASP最適化】
           }
         }
       };
 
+      // 位置ソース設問ノード（【JASP最適化】解析対象フラグ: 1）
       const posSourceTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
@@ -276,7 +279,8 @@ window.BuildTrials = (() => {
           Opt_left: finalPosOptions[0],
           Opt_right: finalPosOptions[1],
           Correct_value: item.position_index,
-          Pair_type: null
+          Pair_type: null,
+          Is_analytic_trial: isPractice ? 0 : 1 // 【JASP最適化】
         },
         on_finish: function(d) {
           d.Source_response = d.response;
@@ -284,7 +288,7 @@ window.BuildTrials = (() => {
             const chosen = (d.response === 'f') ? d.Opt_left : d.Opt_right;
             d.Correctness = (item.test_type !== "lure" && chosen === d.Correct_value) ? 1 : 0;
           } else {
-            d.Correctness = null;
+            d.Correctness = null; // 【JASP最適化】
           }
         }
       };
@@ -302,13 +306,16 @@ window.BuildTrials = (() => {
       } else if (blockType === "position") {
         sourceConditionalNode.timeline.push(posSourceTrial);
       } else if (blockType === "both") {
-        const order = localShuffle([colorSourceTrial, posSourceTrial]);
+        // 【修正】ExpUtils.shuffle へ一元化
+        const order = ExpUtils.shuffle([colorSourceTrial, posSourceTrial]);
         sourceConditionalNode.timeline.push(order[0], order[1]);
       }
 
+      // 固定インターバル（解析対象外: 0）
       const postTrialBlank = {
         type: jsPsychHtmlKeyboardResponse,
-        stimulus: '', choices: "NO_KEYS", trial_duration: 1000
+        stimulus: '', choices: "NO_KEYS", trial_duration: 1000,
+        data: { Is_analytic_trial: 0 }
       };
 
       trials.push(sourceConditionalNode);
@@ -327,6 +334,7 @@ window.BuildTrials = (() => {
       const leftItem = isLeftFirst ? pair.first : pair.second;
       const rightItem = isLeftFirst ? pair.second : pair.first;
 
+      // 順序判断試行ノード（【JASP最適化】解析対象フラグ: 1）
       trials.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: () => makePairHTML(leftItem.src, rightItem.src) + `
@@ -348,7 +356,8 @@ window.BuildTrials = (() => {
           Later_id: pair.second.id,
           Correct_side: isLeftFirst ? "left" : "right",
           Is_practice: isPractice,
-          Id: null, Test_type: null, Frame_color: null, Position_index: null
+          Id: null, Test_type: null, Frame_color: null, Position_index: null,
+          Is_analytic_trial: isPractice ? 0 : 1 // 【JASP最適化】
         },
         on_finish: function(d) {
           d.Order_response = d.response;
@@ -357,14 +366,17 @@ window.BuildTrials = (() => {
             const respondedSide = (d.response === 'f') ? "left" : "right";
             d.Correctness = (respondedSide === d.Correct_side) ? 1 : 0;
           } else {
-            d.Correctness = null;
+            d.Correctness = null; // 【JASP最適化】
+            d.Order_RT = null;
           }
         }
       });
 
+      // 試行間インターバル（解析対象外: 0）
       trials.push({
         type: jsPsychHtmlKeyboardResponse,
-        stimulus: '', choices: "NO_KEYS", trial_duration: 1000
+        stimulus: '', choices: "NO_KEYS", trial_duration: 1000,
+        data: { Is_analytic_trial: 0 }
       });
     });
 
@@ -381,6 +393,7 @@ window.BuildTrials = (() => {
       type: jsPsychHtmlButtonResponse,
       stimulus: '<div class="inst-wrap"><h2>練習課題の開始</h2><p>これより練習課題（計12試行）を行います。可食判断のF/Jキーへの反応速度に慣れてください。</p></div>',
       choices: ['練習を開始する'],
+      data: { Is_analytic_trial: 0 },
       on_load: () => ExpUtils.showCursor(),
       on_finish: function() {
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -396,12 +409,12 @@ window.BuildTrials = (() => {
       type: jsPsychHtmlButtonResponse,
       stimulus: '<div class="inst-wrap"><h2>練習テストフェーズの開始</h2><p>続いて記憶テストの練習を行います。画面の指示に従ってキー入力してください。</p></div>',
       choices: ['テスト練習を開始する'],
+      data: { Is_analytic_trial: 0 },
       on_load: () => ExpUtils.showCursor()
     });
 
     const pSorted = [...practiceList].sort((a, b) => a.encoding_index - b.encoding_index);
 
-    // 要件：練習課題では、7枚目(index 6)と9枚目(index 8)を採用。不正解はそれぞれ6枚目と8枚目
     const practiceSourcePool = [
       { ...pSorted[6], test_type: "within", wrong_color: pSorted[5].frame_color, wrong_position: pSorted[5].position_index },
       { ...pSorted[8], test_type: "within", wrong_color: pSorted[7].frame_color, wrong_position: pSorted[7].position_index }
@@ -434,6 +447,7 @@ window.BuildTrials = (() => {
         </div>
       `,
       choices: ['このセットを開始する'],
+      data: { Is_analytic_trial: 0 },
       on_load: () => {
         ExpUtils.showCursor();
         ExpUtils.setupFullscreenMonitoring(); 
@@ -451,10 +465,10 @@ window.BuildTrials = (() => {
     const oldItems = blockList.filter(x => !x.is_lure);
     const lures = blockList.filter(x => x.is_lure);
 
-    // 要件：6n+1枚目(1番目)から4試行、6n+4枚目(4番目)から4試行、ルアーから4試行を抽出
-    const boundaryItems = localShuffle(oldItems.filter(x => x.context_order > 1 && x.order_in_context === 1)).slice(0, 4);
-    const withinItems = localShuffle(oldItems.filter(x => x.context_order > 1 && x.order_in_context === 4)).slice(0, 4);
-    const chosenLures = localShuffle(lures).slice(0, 4);
+    // 【修正】ExpUtils.shuffle へ一元化
+    const boundaryItems = ExpUtils.shuffle(oldItems.filter(x => x.context_order > 1 && x.order_in_context === 1)).slice(0, 4);
+    const withinItems = ExpUtils.shuffle(oldItems.filter(x => x.context_order > 1 && x.order_in_context === 4)).slice(0, 4);
+    const chosenLures = ExpUtils.shuffle(lures).slice(0, 4);
 
     const addWrongBg = (item) => {
       const prevContext = item.context_order - 1;
@@ -462,7 +476,8 @@ window.BuildTrials = (() => {
       return { ...item, wrong_color: prevItem.frame_color, wrong_position: prevItem.position_index };
     };
 
-    const mainTestPool = localShuffle([
+    // 【修正】ExpUtils.shuffle へ一元化
+    const mainTestPool = ExpUtils.shuffle([
       ...boundaryItems.map(x => ({ ...addWrongBg(x), test_type: "boundary" })),
       ...withinItems.map(x => ({ ...addWrongBg(x), test_type: "within" })),
       ...chosenLures.map(x => ({ ...x, test_type: "lure" }))
@@ -472,9 +487,10 @@ window.BuildTrials = (() => {
       type: jsPsychHtmlKeyboardResponse,
       stimulus: '<div class="inst-wrap"><h2>記憶テスト（再認・背景属性）</h2><p>画像が表示されていたかの判断と、その属性に関する回答タスクです。</p><p style="text-align:center; font-weight:bold; color:blue;">【F】キーを押すとテスト画面が始まります。</p></div>',
       choices: ['f'],
+      data: { Is_analytic_trial: 0 },
       on_load: () => ExpUtils.showCursor()
     });
-    tl.push({ type: jsPsychHtmlKeyboardResponse, stimulus: '', choices: "NO_KEYS", trial_duration: 1000 });
+    tl.push({ type: jsPsychHtmlKeyboardResponse, stimulus: '', choices: "NO_KEYS", trial_duration: 1000, data: { Is_analytic_trial: 0 } });
     
     tl.push(...buildRecognitionAndSource(jsPsych, mainTestPool, blockType, config, false));
 
@@ -497,16 +513,18 @@ window.BuildTrials = (() => {
       }
     });
 
-    const selectedWithin = localShuffle(withinPairs).slice(0, 4);
-    const selectedAcross = localShuffle(acrossPairs).slice(0, 4);
-    const mainOrderPool = localShuffle([...selectedWithin, ...selectedAcross]);
+    // 【修正】ExpUtils.shuffle へ一元化
+    const selectedWithin = ExpUtils.shuffle(withinPairs).slice(0, 4);
+    const selectedAcross = ExpUtils.shuffle(acrossPairs).slice(0, 4);
+    const mainOrderPool = ExpUtils.shuffle([...selectedWithin, ...selectedAcross]);
 
     tl.push({
       type: jsPsychHtmlKeyboardResponse,
-      stimulus: '<div class="inst-wrap"><h2>記憶テスト（時系列順序判断）</h2><p>同時に表示される2枚の画像のうち、どちらが先に提示されていたかを回答するタスクです。</p><p style="text-align:center; font-weight:bold; color:blue;">【F】キーを押すとテスト画面が始まります。</p></div>',
-      choices: ['f']
+      stimulus: '<div class="inst-wrap"><h2>記憶テスト（時系列順序判断）</h2><p>同時に表示される2枚 of 画像のうち、どちらが先に提示されていたかを回答するタスクです。</p><p style="text-align:center; font-weight:bold; color:blue;">【F】キーを押すとテスト画面が始まります。</p></div>',
+      choices: ['f'],
+      data: { Is_analytic_trial: 0 }
     });
-    tl.push({ type: jsPsychHtmlKeyboardResponse, stimulus: '', choices: "NO_KEYS", trial_duration: 1000 });
+    tl.push({ type: jsPsychHtmlKeyboardResponse, stimulus: '', choices: "NO_KEYS", trial_duration: 1000, data: { Is_analytic_trial: 0 } });
     
     tl.push(...buildOrderTimeline(jsPsych, mainOrderPool, blockType, false));
 
@@ -521,6 +539,7 @@ window.BuildTrials = (() => {
           </div>
         `,
         choices: ['次へ進む'],
+        data: { Is_analytic_trial: 0 },
         on_load: () => ExpUtils.showCursor()
       });
     }

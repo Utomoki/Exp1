@@ -1,6 +1,5 @@
 window.ExpUtils = (() => {
   // デバイス間のサイズ差異を吸収し、全体スクロールを禁止する堅牢なCSSレイアウト
-  // 【修正】.hide-cursor の影響範囲を *（すべての子要素）に広げ強制力をアップ
   const baseCSS = `
     html, body { width: 100%; height: 100%; margin: 0; padding: 0; background: #ffffff; color: #333; font-family: sans-serif; overflow: hidden; overscroll-behavior: none; touch-action: pan-y; }
     body.hide-cursor, body.hide-cursor * { cursor: none !important; }
@@ -43,7 +42,6 @@ window.ExpUtils = (() => {
   function lockScroll() { document.body.style.overflow = 'hidden'; }
   function unlockScroll() { document.body.style.overflow = 'auto'; }
 
-  // 【修正】インラインスタイルも強制的に上書きしてカーソル制御を確実にする
   function hideCursor() {
     document.body.classList.add('hide-cursor');
     document.body.style.setProperty('cursor', 'none', 'important');
@@ -53,7 +51,6 @@ window.ExpUtils = (() => {
     document.body.style.setProperty('cursor', 'auto', 'important');
   }
 
-  // リカバリーボタンを表示するかどうかのフラグ
   let isMonitorActive = true; 
 
   function setupFullscreenMonitoring() {
@@ -66,16 +63,13 @@ window.ExpUtils = (() => {
     if (btnContainer) btnContainer.style.display = 'none';
   }
 
-  // 【修正】DOMロード時に一度だけリスナーを登録し、練習ブロック含め常に監視を稼働させる
   document.addEventListener('DOMContentLoaded', () => {
     const btnContainer = document.getElementById('fullscreen-recovery-container');
     const recoverBtn = document.getElementById('btn-recover-fs');
 
     const checkFS = () => {
-      // フルスクリーンが解除された（nullになった）瞬間
       if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        showCursor(); // 【重要】監視ステータスに関わらず、解除時は絶対に戻す
-        
+        showCursor(); 
         if (isMonitorActive && btnContainer) {
           btnContainer.style.display = 'block';
         }
@@ -90,7 +84,6 @@ window.ExpUtils = (() => {
       document.addEventListener(evt, checkFS);
     });
 
-    // 【重要】フェイルセーフ：Escキー直押しを検知して強制的にカーソルを表示
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         showCursor();
@@ -108,6 +101,16 @@ window.ExpUtils = (() => {
       };
     }
   });
+
+  // 【追加】直書きシャッフル関数を共通モジュールへ統合（Fisher-Yates仕様）
+  function shuffle(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
 
   function repeatToLength(a, N) {
     const out = [];
@@ -154,7 +157,6 @@ window.ExpUtils = (() => {
     const hexColor = cmap[frameColor] ?? frameColor;
     const t = positionToTranslate(posIndex, config);
     
-    // 【修正】画面幅を完全固定するコンテナ（.task-area）で囲み、スクロールのはみ出しを防止
     return `
       <div class="task-area">
         <div style="transform: ${t}; transition: transform 0.1s ease; display: flex; justify-content: center; align-items: center;">
@@ -169,6 +171,6 @@ window.ExpUtils = (() => {
   return {
     injectBaseCSS, lockScroll, unlockScroll, hideCursor, showCursor,
     loadConfig, loadJsonl, decorateByBlocks, makeFramedImageHTMLWithPos,
-    setupFullscreenMonitoring, disableFullscreenMonitoring
+    setupFullscreenMonitoring, disableFullscreenMonitoring, shuffle
   };
 })();
