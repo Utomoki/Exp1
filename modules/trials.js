@@ -14,6 +14,56 @@ window.BuildTrials = (() => {
     `;
   }
 
+  // ソースメモリー課題：Color用の選択肢HTML生成
+  function makeMiniColorHTML(src, colorHex) {
+    return `
+      <div style="width: 160px; height: 160px; border: 10px solid ${colorHex}; background: white; margin: 0 auto 15px auto; display: flex; justify-content: center; align-items: center; box-sizing: border-box;">
+        <img src="${src}" style="width: 100px; height: 100px; object-fit: contain;" />
+      </div>
+    `;
+  }
+
+  // ソースメモリー課題：Position用の統合HTML生成（1つの画面内に2箇所提示 ＋ 黒枠 ＋ 中央十字）
+  function makeCombinedPositionHTML(src, posF, posJ, config) {
+    // 位置計算用のヘルパー
+    const getTransform = (posIndex) => {
+      let dx = 0, dy = 0;
+      if (config && config.position_map) {
+        const entry = config.position_map[String(posIndex)];
+        if (entry && entry.type !== 'center') {
+          const a = entry.polar.angle_deg * Math.PI / 180;
+          // ミニ画面(600x450)の縮尺に合わせて、移動距離(半径)を0.6倍にスケールダウン
+          const r = (entry.polar.radius_px || 250) * 0.6; 
+          dx = Math.round(Math.cos(a) * r);
+          dy = Math.round(Math.sin(a) * r);
+        }
+      }
+      return { dx, dy };
+    };
+
+    const tf = getTransform(posF);
+    const tj = getTransform(posJ);
+
+    return `
+      <div style="width: 600px; height: 450px; border: 3px solid #000; background: white; margin: 0 auto; position: relative; overflow: hidden; box-sizing: border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+        
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 2px; background: #aaa;"></div>
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 2px; height: 20px; background: #aaa;"></div>
+
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) translate(${tf.dx}px, ${tf.dy}px); display: flex; flex-direction: column; align-items: center;">
+          <img src="${src}" style="width: 80px; height: 80px; object-fit: contain; display: block; border: 2px solid #000; background: white; box-sizing: border-box;" />
+          <span style="font-weight: bold; font-size: 24px; margin-top: 5px; color: #333; background: rgba(255,255,255,0.8); padding: 0 8px; border-radius: 4px;">F</span>
+        </div>
+
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) translate(${tj.dx}px, ${tj.dy}px); display: flex; flex-direction: column; align-items: center;">
+          <img src="${src}" style="width: 80px; height: 80px; object-fit: contain; display: block; border: 2px solid #000; background: white; box-sizing: border-box;" />
+          <span style="font-weight: bold; font-size: 24px; margin-top: 5px; color: #333; background: rgba(255,255,255,0.8); padding: 0 8px; border-radius: 4px;">J</span>
+        </div>
+
+      </div>
+    `;
+  }
+
   // Fisher-Yates シャッフルアルゴリズム（ローカル用）
   function localShuffle(array) {
     const arr = [...array];
@@ -28,7 +78,7 @@ window.BuildTrials = (() => {
   function buildEncodingTrials(jsPsych, list, config, isPractice = false) {
     const encodingTimeline = [];
     
-    // 【重要バグ修正】リストにルアーが含まれている場合、記銘フェーズからは確実に排除する
+    // リストにルアーが含まれている場合、記銘フェーズからは確実に排除する
     const encodingList = list.filter(x => !x.is_lure);
 
     encodingList.forEach((item, idx) => {
@@ -92,12 +142,12 @@ window.BuildTrials = (() => {
     return encodingTimeline;
   }
 
-  // 2. 再認 ＆ ソースメモリー課題のビルド構造（静的展開へ全面修正）
+  // 2. 再認 ＆ ソースメモリー課題のビルド構造
   function buildRecognitionAndSource(jsPsych, testPool, blockType, config, isPractice = false) {
     const trials = [];
 
     testPool.forEach((item, idx) => {
-      // 再認試行ノード
+      // 再認試行ノード（再認の時はターゲット画像単体を表示）
       const recognitionTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
@@ -119,7 +169,7 @@ window.BuildTrials = (() => {
           Frame_color: item.frame_color,
           Position_index: item.position_index,
           Trial_index_in_task: idx + 1,
-          Test_type: item.test_type, // "boundary", "within", "lure"
+          Test_type: item.test_type, 
           Is_practice: isPractice,
           Pair_type: null
         },
@@ -139,46 +189,49 @@ window.BuildTrials = (() => {
       // --- ソースメモリー選択肢の事前構築 ---
       let colorChoices = [];
       let posChoices = [];
-      const allColors = config.colors.filter(c => c !== 'black');
-      const allPositions = config.positions;
 
-      if (item.test_type !== "lure" && !isPractice) {
-        // Old画像：1つ前の文脈属性を誤認候補にするロジック
-        const currentContext = item.context_order;
-        const prevContext = (currentContext === 1) ? 6 : currentContext - 1;
-        // 別の文脈から環境属性を抽出するためのダミー候補
-        colorChoices = [item.frame_color, allColors[prevContext % allColors.length]];
-        posChoices = [item.position_index, allPositions[prevContext % allPositions.length]];
+      if (item.test_type !== "lure") {
+        // testPool構築時に割り当てられた「不正解」をそのまま利用
+        colorChoices = [item.frame_color, item.wrong_color];
+        posChoices = [item.position_index, item.wrong_position];
       } else {
-        // Lure画像または練習問題：ランダムな2択を生成
-        colorChoices = [item.frame_color, allColors.find(c => c !== item.frame_color) ?? allColors[0]];
-        posChoices = [item.position_index, allPositions.find(p => p !== item.position_index) ?? allPositions[0]];
-      }
+        // ルアー画像：完全ランダムな2択を生成
+        const allColors = config.colors.filter(c => c !== 'black');
+        const allPositions = config.positions;
+        
+        const randColor1 = allColors[Math.floor(Math.random() * allColors.length)];
+        let randColor2 = allColors[Math.floor(Math.random() * allColors.length)];
+        while (randColor1 === randColor2) randColor2 = allColors[Math.floor(Math.random() * allColors.length)];
+        
+        const randPos1 = allPositions[Math.floor(Math.random() * allPositions.length)];
+        let randPos2 = allPositions[Math.floor(Math.random() * allPositions.length)];
+        while (randPos1 === randPos2) randPos2 = allPositions[Math.floor(Math.random() * allPositions.length)];
 
-      // 重複セーフガード
-      if (colorChoices[0] === colorChoices[1]) {
-        colorChoices[1] = allColors.find(c => c !== colorChoices[0]) ?? 'red';
-      }
-      if (posChoices[0] === posChoices[1]) {
-        posChoices[1] = allPositions.find(p => p !== posChoices[0]) ?? 60;
+        colorChoices = [randColor1, randColor2];
+        posChoices = [randPos1, randPos2];
       }
 
       const finalColorOptions = localShuffle([...new Set(colorChoices)]);
       const finalPosOptions = localShuffle([...new Set(posChoices)]);
 
+      const color0_hex = config.color_map[finalColorOptions[0]] ?? finalColorOptions[0];
+      const color1_hex = config.color_map[finalColorOptions[1]] ?? finalColorOptions[1];
+
       // カラー設問ノード
       const colorSourceTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
-          <div style="border:1px solid #ccc; padding:10px; width:200px; height:200px; margin:0 auto; background:white; display:flex; align-items:center; justify-content:center;">
-            <img src="${item.src}" style="width:200px; height:200px; object-fit:contain;" />
+          <p style="font-size: 24px; margin-bottom: 40px;">この画像は、どの<strong>「枠の色」</strong>で表示されていましたか？</p>
+          <div style="display:flex; justify-content:center; gap:80px; align-items:flex-end;">
+            <div style="text-align:center;">
+              ${makeMiniColorHTML(item.src, color0_hex)}
+              <span style="font-weight:bold; font-size:24px;">F</span>
+            </div>
+            <div style="text-align:center;">
+              ${makeMiniColorHTML(item.src, color1_hex)}
+              <span style="font-weight:bold; font-size:24px;">J</span>
+            </div>
           </div>
-          <p style="margin-top:40px;">この画像は、どの<strong>「枠の色」</strong>で表示されていましたか？</p>
-          <p style="font-weight:bold; font-size:26px;">
-            F：<span style="color:${config.color_map[finalColorOptions[0]] ?? '#000'}">${finalColorOptions[0]}</span> 
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-            J：<span style="color:${config.color_map[finalColorOptions[1]] ?? '#000'}">${finalColorOptions[1]}</span>
-          </p>
         `,
         choices: ['f', 'j'],
         data: {
@@ -204,7 +257,6 @@ window.BuildTrials = (() => {
           d.Source_response = d.response;
           if (d.response !== null) {
             const chosen = (d.response === 'f') ? d.Opt_left : d.Opt_right;
-            // ルアーの場合は常に0(不正解)とする仕様
             d.Correctness = (item.test_type !== "lure" && chosen === d.Correct_value) ? 1 : 0;
           } else {
             d.Correctness = null;
@@ -212,15 +264,12 @@ window.BuildTrials = (() => {
         }
       };
 
-      // 位置設問ノード
+      // 位置設問ノード（新UI：1画面内にFとJの画像を配置）
       const posSourceTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
-          <div style="border:1px solid #ccc; padding:10px; width:200px; height:200px; margin:0 auto; background:white; display:flex; align-items:center; justify-content:center;">
-            <img src="${item.src}" style="width:200px; height:200px; object-fit:contain;" />
-          </div>
-          <p style="margin-top:40px;">この画像は、画面のどの<strong>「配置位置（角度）」</strong>に表示されていましたか？</p>
-          <p style="font-weight:bold; font-size:24px;">F：左選択肢 [ ${finalPosOptions[0]}° ] &nbsp;&nbsp;&nbsp;&nbsp; J：右選択肢 [ ${finalPosOptions[1]}° ]</p>
+          ${makeCombinedPositionHTML(item.src, finalPosOptions[0], finalPosOptions[1], config)}
+          <p style="font-size: 24px; margin-top: 40px;">この画像は、画面のどの<strong>「配置位置」</strong>に表示されていましたか？</p>
         `,
         choices: ['f', 'j'],
         data: {
@@ -352,7 +401,7 @@ window.BuildTrials = (() => {
       stimulus: '<div class="inst-wrap"><h2>練習課題の開始</h2><p>これより練習課題（計12試行）を行います。可食判断のF/Jキーへの反応速度に慣れてください。</p></div>',
       choices: ['練習を開始する'],
       on_load: () => ExpUtils.showCursor(),
-      // 【バグ防止セーフティ】全画面が不意に外れていたら、ボタン押下時に自動で再要求して戻す
+      // 全画面が不意に外れていたら自動で再要求して戻す
       on_finish: function() {
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
           const target = document.documentElement;
@@ -372,17 +421,22 @@ window.BuildTrials = (() => {
     });
 
     // --- 練習想起刺激の厳密なサンプリング抽出 ---
-    // 再認・ソース練習：2試行
-    const practicePool = localShuffle([...practiceList]).slice(0, 2).map(x => ({ ...x, test_type: "within" }));
-    
-    // 順序練習：指定の「2枚目と6枚目」「5枚目と9枚目」の2試行
     const pSorted = [...practiceList].sort((a, b) => a.encoding_index - b.encoding_index);
+
+    // 再認・ソース練習：指定の7枚目(index 6)と9枚目(index 8)
+    // 不正解背景はそれぞれ直前の6枚目(index 5)と8枚目(index 7)の背景を採用
+    const practiceSourcePool = [
+      { ...pSorted[6], test_type: "within", wrong_color: pSorted[5].frame_color, wrong_position: pSorted[5].position_index },
+      { ...pSorted[8], test_type: "within", wrong_color: pSorted[7].frame_color, wrong_position: pSorted[7].position_index }
+    ];
+    
+    // 順序練習：指定の「2枚目と6枚目」「5枚目と9枚目」の2ペア
     const practiceOrderPool = [
-      { type: "within", first: pSorted[1], second: pSorted[5] }, // 2枚目(idx 1) と 6枚目(idx 5)
-      { type: "across", first: pSorted[4], second: pSorted[8] }  // 5枚目(idx 4) と 9枚目(idx 8)
+      { type: "within", first: pSorted[1], second: pSorted[5] }, 
+      { type: "across", first: pSorted[4], second: pSorted[8] }  
     ];
 
-    tl.push(...buildRecognitionAndSource(jsPsych, practicePool, "both", config, true));
+    tl.push(...buildRecognitionAndSource(jsPsych, practiceSourcePool, "both", config, true));
     tl.push(...buildOrderTimeline(jsPsych, practiceOrderPool, "both", true));
 
     return tl;
@@ -408,7 +462,7 @@ window.BuildTrials = (() => {
         ExpUtils.showCursor();
         ExpUtils.setupFullscreenMonitoring(); // 離脱監視の有効化
       },
-      // 【バグ防止セーフティ】全画面が不意に外れていたらボタン押下時に自動で再要求して戻す
+      // 全画面が不意に外れていたら自動で再要求して戻す
       on_finish: function() {
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
           const target = document.documentElement;
@@ -421,17 +475,24 @@ window.BuildTrials = (() => {
     tl.push(...buildEncodingTrials(jsPsych, blockList, config, false));
 
     // 2 & 3. 本番再認・ソース記憶フェーズの構築
-    // 境界直後(1枚目)から4枚、境界内4枚目から4枚、ルアーから4枚を厳密サンプリング
     const oldItems = blockList.filter(x => !x.is_lure);
     const lures = blockList.filter(x => x.is_lure);
 
-    const boundaryItems = localShuffle(oldItems.filter(x => x.order_in_context === 1)).slice(0, 4);
-    const withinItems = localShuffle(oldItems.filter(x => x.order_in_context === 4)).slice(0, 4);
+    // 6n+1枚目(1番目, context_order > 1)と、6n+3枚目(3番目, context_order > 1)をそれぞれ抽出
+    const boundaryItems = localShuffle(oldItems.filter(x => x.context_order > 1 && x.order_in_context === 1)).slice(0, 4);
+    const withinItems = localShuffle(oldItems.filter(x => x.context_order > 1 && x.order_in_context === 3)).slice(0, 4);
     const chosenLures = localShuffle(lures).slice(0, 4);
 
+    // 不正解背景(一つ前のブロックの背景)を付与するヘルパー
+    const addWrongBg = (item) => {
+      const prevContext = item.context_order - 1;
+      const prevItem = oldItems.find(x => x.context_order === prevContext);
+      return { ...item, wrong_color: prevItem.frame_color, wrong_position: prevItem.position_index };
+    };
+
     const mainTestPool = localShuffle([
-      ...boundaryItems.map(x => ({ ...x, test_type: "boundary" })),
-      ...withinItems.map(x => ({ ...x, test_type: "within" })),
+      ...boundaryItems.map(x => ({ ...addWrongBg(x), test_type: "boundary" })),
+      ...withinItems.map(x => ({ ...addWrongBg(x), test_type: "within" })),
       ...chosenLures.map(x => ({ ...x, test_type: "lure" }))
     ]);
 
