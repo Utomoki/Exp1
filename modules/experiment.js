@@ -256,7 +256,7 @@
             <div><strong>お問い合わせ先</strong>（システムエラーや謝礼に関する問題が生じた場合）</div>
             <div>${config.investigator.affiliation}</div>
             <div>氏名：${config.investigator.name}</div>
-            <div>Mail：<a href="mailto:${config.investigator.email}">${config.investigator.email}</a> ／ TEL：${config.investigator.phone}</div>
+            <div>Mail：<a href="mailto:${config.investigator.email}">${config.investigator.email}</a></div>
           </div>
         </div>
       `,
