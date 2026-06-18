@@ -136,7 +136,7 @@ window.BuildIntroduction = (() => {
           <div class="flow">
             <strong>【1セット内で行う課題ステップ】</strong>
             <ol>
-              <li><strong>可食判断課題</strong>：物品が食べ物か否かを判断します。</li>
+              <li><strong>食品判断課題</strong>：物品が食べ物か否かを判断します。</li>
               <li><strong>画像有無を思い出す課題</strong>：画像が表示されていたか否かを回答します。</li>
               <li><strong>画像背景を思い出す課題</strong>：画像がどの背景（色や場所）にあったかを回答します。</li>
               <li><strong>画像順序を思い出す課題</strong>：2つの画像の提示順序を回答します。</li>
@@ -149,13 +149,13 @@ window.BuildIntroduction = (() => {
         // 共通ページ1：ステップ1（inst_encoding.png を追加）
         `
         <div class="inst-wrap">
-          <h2>ステップ1：可食判断課題（判断課題）</h2>
+          <h2>ステップ1：食品判断課題（判断課題）</h2>
           <p>画面中央に「＋」が表示されたのち、<strong>枠のついた画像</strong>が1枚ずつ表示されます。</p>
           <ul>
-            <li>画像が<strong>「食べられるもの（食品）」なら左手で【F】キー</strong>を、<strong>「食べられないもの」なら右手で【J】キー</strong>を押してください。</li>
+            <li>画像が<strong>「食べられるもの（食べ物）」なら左手で【F】キー</strong>を、<strong>「食べられないもの」なら右手で【J】キー</strong>を押してください。</li>
             <li>画像はキー入力の有無にかかわらず自動で次に進みます。必ず提示されている間にできるだけ速く正確に回答してください。</li>
           </ul>
-          <img src="./img/inst_encoding.png" class="inst-img" alt="可食判断課題の説明">
+          <img src="./img/inst_encoding.png" class="inst-img" alt="食品判断課題の説明">
         </div>
         `,
         // 共通ページ2：ステップ2,3（inst_recongnition.pngとinst_source.png を追加）

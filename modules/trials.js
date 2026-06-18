@@ -89,7 +89,7 @@ window.BuildTrials = (() => {
         data: { Is_analytic_trial: 0 }
       });
 
-      // 刺激提示・可食判断ノード（【JASP最適化】解析対象フラグ: 1）
+      // 刺激提示・食品判断ノード（【JASP最適化】解析対象フラグ: 1）
       encodingTimeline.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: () => ExpUtils.makeFramedImageHTMLWithPos(item.src, item.frame_color, item.position_index, config),
@@ -144,7 +144,7 @@ window.BuildTrials = (() => {
           <div style="border:1px solid #ccc; padding:10px; width:200px; height:200px; margin:0 auto; background:white; display:flex; align-items:center; justify-content:center;">
             <img src="${item.src}" style="width:200px; height:200px; object-fit:contain;" />
           </div>
-          <p style="margin-top:40px;">この画像は、可食判断の中で表示されていましたか？</p>
+          <p style="margin-top:40px;">この画像は、食品判断の中で表示されていましたか？</p>
           <p style="font-weight:bold; font-size:24px;">F：表示されていた &nbsp;&nbsp;&nbsp;&nbsp; J：表示されていなかった</p>
         `,
         choices: ['f', 'j'],
@@ -338,7 +338,7 @@ window.BuildTrials = (() => {
       trials.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: () => makePairHTML(leftItem.src, rightItem.src) + `
-          <p style="margin-top:30px;">左右の2枚の画像のうち、可食判断ではどちらが<strong>「先」</strong>に表示されていましたか？</p>
+          <p style="margin-top:30px;">左右の2枚の画像のうち、食品判断ではどちらが<strong>「先」</strong>に表示されていましたか？</p>
           <p style="font-weight:bold; font-size:24px;">F：左の画像が先 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; J：右の画像が先</p>
         `,
         choices: ['f', 'j'],
@@ -442,7 +442,7 @@ window.BuildTrials = (() => {
       stimulus: `
         <div class="inst-wrap">
           <h2>本番第 ${setIndex} / 3 セット</h2>
-          <p>準備ができたら開始ボタンを押してください。可食判断（ステップ1）から始まります。</p>
+          <p>準備ができたら開始ボタンを押してください。食品判断（ステップ1）から始まります。</p>
           <p><strong>F</strong>：食べ物　　　<strong>J</strong>：食べ物でない</p>
           <p style="color:#e74c3c; font-weight:bold;">※開始するとマウスカーソルは自動で非表示になります。</p>
         </div>
@@ -521,7 +521,7 @@ window.BuildTrials = (() => {
 
     tl.push({
       type: jsPsychHtmlKeyboardResponse,
-      stimulus: '<div class="inst-wrap"><h2>記憶テスト（時系列順序判断）</h2><p>左右に表示される2枚の画像のうち、可食判断でどちらが先に提示されていたかを回答するタスクです。</p><p style="text-align:center; font-weight:bold; color:blue;">【F】キーを押すとテスト画面が始まります。</p></div>',
+      stimulus: '<div class="inst-wrap"><h2>記憶テスト（時系列順序判断）</h2><p>左右に表示される2枚の画像のうち、食品判断でどちらが先に提示されていたかを回答するタスクです。</p><p style="text-align:center; font-weight:bold; color:blue;">【F】キーを押すとテスト画面が始まります。</p></div>',
       choices: ['f'],
       data: { Is_analytic_trial: 0 }
     });
