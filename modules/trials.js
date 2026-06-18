@@ -73,20 +73,11 @@ window.BuildTrials = (() => {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: '<div class="fixation">+</div>',
         choices: "NO_KEYS",
-        trial_duration: 500,
+        trial_duration: 2500,
         data: { Is_analytic_trial: 0 },
         on_start: () => { 
           if (idx === 0) ExpUtils.hideCursor(); 
         }
-      });
-
-      // ブランク（解析対象外: 0）
-      encodingTimeline.push({
-        type: jsPsychHtmlKeyboardResponse,
-        stimulus: '',
-        choices: "NO_KEYS",
-        trial_duration: 2000,
-        data: { Is_analytic_trial: 0 }
       });
 
       // 刺激提示・食品判断ノード（【JASP最適化】解析対象フラグ: 1）
