@@ -144,7 +144,7 @@ window.BuildTrials = (() => {
           <div style="border:1px solid #ccc; padding:10px; width:200px; height:200px; margin:0 auto; background:white; display:flex; align-items:center; justify-content:center;">
             <img src="${item.src}" style="width:200px; height:200px; object-fit:contain;" />
           </div>
-          <p style="margin-top:40px;">この画像は、このセットの中に提示されていましたか？</p>
+          <p style="margin-top:40px;">この画像は、可食判断の中で表示されていましたか？</p>
           <p style="font-weight:bold; font-size:24px;">F：表示されていた &nbsp;&nbsp;&nbsp;&nbsp; J：表示されていなかった</p>
         `,
         choices: ['f', 'j'],
@@ -210,7 +210,7 @@ window.BuildTrials = (() => {
       const colorSourceTrial = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
-          <p style="font-size: 24px; margin-bottom: 40px;">この画像は、どの<strong>「枠の色」</strong>で表示されていましたか？</p>
+          <p style="font-size: 24px; margin-bottom: 40px;">この画像は、どちらの<strong>「枠の色」</strong>で表示されていましたか？</p>
           <div style="display:flex; justify-content:center; gap:80px; align-items:flex-end;">
             <div style="text-align:center;">
               ${makeMiniColorHTML(item.src, color0_hex)}
@@ -259,7 +259,7 @@ window.BuildTrials = (() => {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: `
           ${makeCombinedPositionHTML(item.src, finalPosOptions[0], finalPosOptions[1], config)}
-          <p style="font-size: 24px; margin-top: 40px;">この画像は、画面のどの<strong>「配置位置」</strong>に表示されていましたか？</p>
+          <p style="font-size: 24px; margin-top: 40px;">この画像は、画面のどちらの<strong>「位置」</strong>に表示されていましたか？</p>
         `,
         choices: ['f', 'j'],
         data: {
@@ -338,7 +338,7 @@ window.BuildTrials = (() => {
       trials.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: () => makePairHTML(leftItem.src, rightItem.src) + `
-          <p style="margin-top:30px;">提示された2枚の画像のうち、どちらが<strong>「先」</strong>に表示されていましたか？</p>
+          <p style="margin-top:30px;">左右の2枚の画像のうち、可食判断ではどちらが<strong>「先」</strong>に表示されていましたか？</p>
           <p style="font-weight:bold; font-size:24px;">F：左の画像が先 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; J：右の画像が先</p>
         `,
         choices: ['f', 'j'],
@@ -391,7 +391,7 @@ window.BuildTrials = (() => {
     
     tl.push({
       type: jsPsychHtmlButtonResponse,
-      stimulus: '<div class="inst-wrap"><h2>練習課題の開始</h2><p>これより練習課題（計12試行）を行います。可食判断のF/Jキーへの反応速度に慣れてください。</p></div>',
+      stimulus: '<div class="inst-wrap"><h2>練習課題の開始</h2><p>これより練習課題（計12試行）を行います。食べ物（F）か食べ物でない（J）かを判断してください。</p></div>',
       choices: ['練習を開始する'],
       data: { Is_analytic_trial: 0 },
       on_load: () => ExpUtils.showCursor(),
@@ -443,6 +443,7 @@ window.BuildTrials = (() => {
         <div class="inst-wrap">
           <h2>本番第 ${setIndex} / 3 セット</h2>
           <p>準備ができたら開始ボタンを押してください。可食判断（ステップ1）から始まります。</p>
+          <p><strong>F</strong>：食べ物　　　<strong>J</strong>：食べ物でない</p>
           <p style="color:#e74c3c; font-weight:bold;">※開始するとマウスカーソルは自動で非表示になります。</p>
         </div>
       `,
@@ -485,7 +486,7 @@ window.BuildTrials = (() => {
 
     tl.push({
       type: jsPsychHtmlKeyboardResponse,
-      stimulus: '<div class="inst-wrap"><h2>記憶テスト（再認・背景属性）</h2><p>画像が表示されていたかの判断と、その属性に関する回答タスクです。</p><p style="text-align:center; font-weight:bold; color:blue;">【F】キーを押すとテスト画面が始まります。</p></div>',
+      stimulus: '<div class="inst-wrap"><h2>記憶テスト（再認・背景）</h2><p>画像が表示されていたかの判断と、その背景に関する回答タスクです。</p><p style="text-align:center; font-weight:bold; color:blue;">【F】キーを押すとテスト画面が始まります。</p></div>',
       choices: ['f'],
       data: { Is_analytic_trial: 0 },
       on_load: () => ExpUtils.showCursor()
@@ -520,7 +521,7 @@ window.BuildTrials = (() => {
 
     tl.push({
       type: jsPsychHtmlKeyboardResponse,
-      stimulus: '<div class="inst-wrap"><h2>記憶テスト（時系列順序判断）</h2><p>同時に表示される2枚 of 画像のうち、どちらが先に提示されていたかを回答するタスクです。</p><p style="text-align:center; font-weight:bold; color:blue;">【F】キーを押すとテスト画面が始まります。</p></div>',
+      stimulus: '<div class="inst-wrap"><h2>記憶テスト（時系列順序判断）</h2><p>左右に表示される2枚の画像のうち、可食判断でどちらが先に提示されていたかを回答するタスクです。</p><p style="text-align:center; font-weight:bold; color:blue;">【F】キーを押すとテスト画面が始まります。</p></div>',
       choices: ['f'],
       data: { Is_analytic_trial: 0 }
     });
