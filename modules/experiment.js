@@ -207,7 +207,7 @@
       }
     });
 
-    // サーバー保存処理ノード（write_data.php 連携版へ復帰）
+    // サーバー保存処理ノード（write_data.php 連携版へ完全復帰）
     timeline.push({
       type: jsPsychCallFunction,
       async: true,
@@ -216,7 +216,7 @@
         const expDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
         const expTime = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
 
-        // Rでの解析要件に合わせ、大文字始まりでプロパティ格納
+        // RやJASPでの解析要件に合わせ、大文字始まりでプロパティ格納
         jsPsych.data.addProperties({
           Experiment_date: expDate,
           Experiment_end_time: expTime,
@@ -241,7 +241,7 @@
       }
     });
 
-    // 終了確定・完了コード提示画面（Choices: NO_KEYS で離脱を担保）
+    // 終了確定・完了コード提示画面
     timeline.push({
       type: jsPsychHtmlKeyboardResponse,
       stimulus: `
